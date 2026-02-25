@@ -70,7 +70,7 @@ export default function Sidebar() {
                     }`}
             >
                 {/* Logo */}
-                <Link href="/" className="block p-6 border-b-3 border-neo-black">
+                <Link href="/dashboard" className="block p-6 border-b-3 border-neo-black">
                     <motion.div
                         initial={{ scale: 0.8, rotate: -5 }}
                         animate={{ scale: 1, rotate: 0 }}
