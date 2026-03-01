@@ -370,10 +370,10 @@ export default function AnalyticsPage() {
                                         <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => formatNumber(v)} />
                                         <Tooltip
                                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            formatter={(value: any) => [
+                                            formatter={((value: any) => [
                                                 formatNumber(Number(value || 0)),
                                                 "Followers"
-                                            ]}
+                                            ]) as any}
                                             contentStyle={{ borderRadius: 12, border: "2px solid #1a1a2e", fontWeight: 600, fontSize: 12 }}
                                         />
                                         <Area
@@ -461,11 +461,11 @@ export default function AnalyticsPage() {
                                         <Tooltip
                                             contentStyle={{ borderRadius: 12, border: "2px solid #1a1a2e", fontWeight: 600, fontSize: 12 }}
                                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            formatter={(value: any, name: string) => [
+                                            formatter={((value: any, name: any) => [
                                                 formatNumber(Number(value || 0)),
                                                 name === "predictedLikes" ? "Predicted Likes" :
                                                     name === "predictedComments" ? "Predicted Comments" : "Predicted Reach"
-                                            ]}
+                                            ]) as any}
                                         />
                                         <Bar dataKey="predictedLikes" radius={[6, 6, 0, 0]} fill="#FF6B9D" stroke="#1a1a2e" strokeWidth={1.5} name="predictedLikes" />
                                         <Bar dataKey="predictedComments" radius={[6, 6, 0, 0]} fill="#4ECDC4" stroke="#1a1a2e" strokeWidth={1.5} name="predictedComments" />
@@ -515,10 +515,10 @@ export default function AnalyticsPage() {
                                         <Tooltip
                                             contentStyle={{ borderRadius: 12, border: "2px solid #1a1a2e", fontWeight: 600, fontSize: 12 }}
                                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                            formatter={(value: any) => [
+                                            formatter={((value: any) => [
                                                 `${value || 0}%`,
                                                 "Share"
-                                            ]}
+                                            ]) as any}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
