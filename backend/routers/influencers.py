@@ -25,7 +25,7 @@ async def fetch_influencer(req: SocialFetchRequest):
         profile = await social.fetch_social_profile(clean_handle, req.platform)
         
         # 2. Fetch real comments for sentiment analysis
-        comments = await social.fetch_comments(clean_handle, req.platform)
+        comments = await social.fetch_comments(clean_handle, req.platform, profile)
         
         # 3. Generate engagement timeline from real data
         timeline = social.generate_engagement_timeline(profile)
@@ -36,8 +36,8 @@ async def fetch_influencer(req: SocialFetchRequest):
         profile["match_score"] = match_result.get("match_score", 0)
         profile["recommendation"] = match_result.get("recommendation", "consider")
         
-        # Risk assessment
-        risk_result = await ai.assess_risk(profile, timeline, comments)
+        # Risk assessment — uses ONLY real profile metrics + real comments (no synthetic timeline)
+        risk_result = await ai.assess_risk(profile, comments)
         profile["risk_level"] = risk_result.get("overall_risk", "medium")
         profile["bot_percentage"] = risk_result.get("bot_percentage", 0)
         
@@ -69,6 +69,22 @@ async def fetch_influencer(req: SocialFetchRequest):
                 await db.save_sentiment(influencer_id, sentiment)
             if risk_result.get("flags"):
                 await db.save_risk_flags(influencer_id, risk_result["flags"])
+        
+        # Log activity
+        follower_str = f"{profile.get('followers', 0):,}"
+        await db.log_activity(
+            action="Influencer Fetched",
+            details=f"Added {profile.get('name', '')} ({profile.get('handle', '')}) from {req.platform} — {follower_str} followers, {profile.get('risk_level', 'unknown')} risk",
+            icon="user-plus",
+        )
+        # Alert on high/critical risk
+        risk_lvl = risk_result.get("overall_risk", "low")
+        if risk_lvl in ("high", "critical"):
+            await db.log_activity(
+                action=f"⚠️ {risk_lvl.upper()} Risk Detected",
+                details=f"{profile.get('name', '')} ({profile.get('handle', '')}) flagged as {risk_lvl} risk — {len(risk_result.get('flags', []))} issue(s) found",
+                icon="alert",
+            )
         
         return {
             "profile": saved_profile,
@@ -121,12 +137,36 @@ async def get_all_risk_flags():
     return data
 
 
+@router.delete("/risks/{flag_id}")
+async def delete_risk_flag(flag_id: str):
+    """Delete a single risk flag"""
+    try:
+        success = await db.delete_risk_flag(flag_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Risk flag not found")
+        await db.log_activity(
+            action="Risk Flag Dismissed",
+            details=f"Manually dismissed risk flag {flag_id[:8]}…",
+            icon="shield",
+        )
+        return {"deleted": True, "id": flag_id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/clear-all")
 async def clear_all_influencers():
     """Delete ALL influencers and related data from the database"""
     try:
-        count = await db.clear_all_influencers()
-        return {"deleted": count, "message": f"Cleared {count} influencers from database"}
+        await db.clear_all_influencers()
+        await db.log_activity(
+            action="Collection Cleared",
+            details="All influencers and their analysis data were permanently deleted",
+            icon="trash",
+        )
+        return {"deleted": True, "message": "All influencers and data cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -135,9 +175,20 @@ async def clear_all_influencers():
 async def delete_influencer(influencer_id: str):
     """Delete a single influencer and all related data"""
     try:
+        # Get name before deleting for notification
+        profile = await db.get_influencer(influencer_id)
+        name = profile.get("name", "Unknown") if profile else "Unknown"
+        handle = profile.get("handle", "") if profile else ""
+        
         success = await db.delete_influencer(influencer_id)
         if not success:
             raise HTTPException(status_code=404, detail="Influencer not found")
+        
+        await db.log_activity(
+            action="Influencer Removed",
+            details=f"Deleted {name} ({handle}) and all related analysis data",
+            icon="trash",
+        )
         return {"deleted": True, "message": "Influencer deleted successfully"}
     except HTTPException:
         raise
@@ -196,10 +247,20 @@ async def reanalyze_influencer(influencer_id: str):
     
     engagement = await db.get_engagement_data(influencer_id)
     
-    # Re-run AI
+    # Re-run AI — risk assessment uses only real profile metrics (no synthetic timeline)
     match_result = await ai.calculate_match_score(profile)
-    risk_result = await ai.assess_risk(profile, engagement)
+    
+    # Needs comments for risk analysis and sentiment
+    clean_handle = profile.get("handle", "").replace("@", "").lower().strip()
+    comments = await social.fetch_comments(clean_handle, profile.get("platform", "instagram"), profile)
+    
+    risk_result = await ai.assess_risk(profile, comments)
     roi_result = await ai.predict_roi(profile)
+    
+    sentiment = {}
+    if comments:
+        sentiment = await ai.analyze_sentiment(comments, profile.get("name", ""))
+        profile["brand_safety_score"] = sentiment.get("brand_safety_score", 0)
     
     # Update
     updated = {
@@ -214,6 +275,15 @@ async def reanalyze_influencer(influencer_id: str):
     
     if risk_result.get("flags"):
         await db.save_risk_flags(influencer_id, risk_result["flags"])
+        
+    if sentiment:
+        await db.save_sentiment(influencer_id, sentiment)
+    
+    await db.log_activity(
+        action="Re-Analysis Complete",
+        details=f"Re-ran AI analysis on {profile.get('name', 'Unknown')} ({profile.get('handle', '')}) — Match: {match_result.get('match_score', 0)}%, Risk: {risk_result.get('overall_risk', 'unknown')}",
+        icon="refresh",
+    )
     
     return {
         "match": match_result,

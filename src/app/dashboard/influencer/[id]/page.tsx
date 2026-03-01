@@ -197,7 +197,7 @@ export default function InfluencerDetailPage() {
                         className="neo-btn bg-[var(--color-neo-cyan)] px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2"
                     >
                         {reanalyzing ? <Loader size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                        {reanalyzing ? "Analyzing..." : "Refresh Bio"}
+                        {reanalyzing ? "Analyzing..." : "Re-Analyze Profile"}
                     </motion.button>
                     <Link href="/dashboard/brief" className="w-full sm:w-auto">
                         <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="neo-btn bg-[var(--color-neo-purple)] text-[var(--color-neo-white)] w-full px-5 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">

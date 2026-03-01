@@ -249,7 +249,7 @@ async def fetch_youtube_channel(handle: str) -> dict:
             # Last resort: try using the handle as the ID
             channel_id = clean_handle
 
-        # Step 2: Get full details
+        # Step 2: Get full channel details
         resp = await client.get(
             f"https://{YOUTUBE_HOST}/channel/details/",
             params={"id": channel_id},
@@ -280,14 +280,103 @@ async def fetch_youtube_channel(handle: str) -> dict:
         
         description = data.get("description", "")
         title = data.get("title", handle)
+
+        # Step 3: Fetch recent videos to get REAL avg likes/comments
+        avg_likes = 0
+        avg_comments = 0
+        recent_posts = []
         
-        # Calculate approximate engagement rate from views
-        # For YouTube: avg views per video / subscribers * 100
+        try:
+            videos_resp = await client.get(
+                f"https://{YOUTUBE_HOST}/channel/videos/",
+                params={"id": channel_id, "filter": "videos_latest", "hl": "en", "gl": "US"},
+                headers=headers,
+            )
+            
+            if videos_resp.status_code == 200:
+                videos_data = videos_resp.json()
+                video_items = videos_data.get("contents", videos_data.get("data", []))
+                
+                # Collect video IDs from recent videos
+                video_ids = []
+                for v_item in video_items[:10]:
+                    vid = v_item.get("video", v_item)
+                    vid_id = vid.get("videoId") or vid.get("id", "")
+                    if vid_id:
+                        video_ids.append(vid_id)
+                        # Also collect basic info for recent_posts
+                        recent_posts.append({
+                            "id": vid_id,
+                            "thumbnail": "",
+                            "likes": 0,
+                            "comments": 0,
+                            "caption": vid.get("title", ""),
+                            "views": vid.get("stats", {}).get("views", 0) if isinstance(vid.get("stats"), dict) else 0,
+                        })
+                
+                # Step 4: Get real like/comment stats from video details
+                total_likes = 0
+                total_comments = 0
+                videos_with_data = 0
+                
+                for vid_id in video_ids[:5]:  # Limit to 5 API calls
+                    try:
+                        vid_resp = await client.get(
+                            f"https://{YOUTUBE_HOST}/video/details/",
+                            params={"id": vid_id, "hl": "en", "gl": "US"},
+                            headers=headers,
+                        )
+                        
+                        if vid_resp.status_code == 200:
+                            vid_data = vid_resp.json()
+                            vid_stats = vid_data.get("stats", {})
+                            
+                            # likes can be in different formats
+                            likes = vid_stats.get("likes", 0) or 0
+                            comments = vid_stats.get("comments", 0) or 0
+                            
+                            # Handle string numbers like "12.3K"
+                            if isinstance(likes, str):
+                                likes = _parse_yt_number(likes)
+                            if isinstance(comments, str):
+                                comments = _parse_yt_number(comments)
+                            
+                            total_likes += int(likes)
+                            total_comments += int(comments)
+                            videos_with_data += 1
+                            
+                            # Update recent_posts with real data
+                            for rp in recent_posts:
+                                if rp["id"] == vid_id:
+                                    rp["likes"] = int(likes)
+                                    rp["comments"] = int(comments)
+                                    # Get thumbnail
+                                    thumbs = vid_data.get("thumbnails", [])
+                                    if isinstance(thumbs, list) and thumbs:
+                                        rp["thumbnail"] = thumbs[-1].get("url", "")
+                                    break
+                    except Exception:
+                        continue  # Skip failed video detail requests
+                
+                if videos_with_data > 0:
+                    avg_likes = total_likes // videos_with_data
+                    avg_comments = total_comments // videos_with_data
+                    
+        except Exception:
+            pass  # If video fetching fails, we'll fall back to estimates below
+        
+        # Calculate engagement rate from REAL data when available
         yt_eng = 0.0
-        if subscriber_count > 0 and video_count > 0:
-            avg_views = view_count / video_count
-            yt_eng = round((avg_views / subscriber_count) * 100, 2)
-            yt_eng = min(yt_eng, 100.0)  # Cap at 100
+        if subscriber_count > 0:
+            if avg_likes > 0:
+                # Real engagement: (avg_likes + avg_comments) / subscribers * 100
+                yt_eng = round(((avg_likes + avg_comments) / subscriber_count) * 100, 2)
+                yt_eng = min(yt_eng, 100.0)
+            elif video_count > 0:
+                # Fallback: view-based engagement
+                avg_views = view_count / video_count
+                yt_eng = round((avg_views / subscriber_count) * 100, 2)
+                yt_eng = min(yt_eng, 100.0)
         
         res = {
             "name": title,
@@ -298,24 +387,44 @@ async def fetch_youtube_channel(handle: str) -> dict:
             "following": 0,
             "posts": video_count,
             "engagement_rate": yt_eng,
-            "avg_likes": 0,
-            "avg_comments": 0,
+            "avg_likes": avg_likes,
+            "avg_comments": avg_comments,
             "verified": data.get("isVerified", False),
             "bio": description[:500] if description else "",
             "location": data.get("country", ""),
             "niche": _detect_niche_from_bio(f"{title} {description}", title, []),
-            "recent_posts": [], # YouTube details don't return posts in this call
+            "recent_posts": recent_posts[:5],
         }
 
-        # FINAL POLISH: If engagement is 0 but they have subscribers, use industry benchmarks
-        if res["followers"] > 0 and res["engagement_rate"] == 0:
-            # Benchmark for YT is ~2.5% - 4%
-            fallback_er = 3.50 if res["followers"] < 100000 else 2.15
-            res["engagement_rate"] = fallback_er
-            res["avg_likes"] = int(res["followers"] * (fallback_er / 100))
-            res["avg_comments"] = int(res["avg_likes"] * 0.05) 
+        # FINAL POLISH: If we still have 0 likes (API didn't return them), use estimates
+        if res["followers"] > 0 and res["avg_likes"] == 0:
+            if res["engagement_rate"] > 0:
+                # Estimate from engagement rate
+                res["avg_likes"] = int(res["followers"] * (min(res["engagement_rate"], 10) / 100))
+                res["avg_comments"] = int(res["avg_likes"] * 0.05)
+            else:
+                # Benchmark for YT is ~2.5% - 4%
+                fallback_er = 3.50 if res["followers"] < 100000 else 2.15
+                res["engagement_rate"] = fallback_er
+                res["avg_likes"] = int(res["followers"] * (fallback_er / 100))
+                res["avg_comments"] = int(res["avg_likes"] * 0.05) 
 
         return res
+
+
+def _parse_yt_number(s: str) -> int:
+    """Parse YouTube formatted numbers like '12.3K', '1.5M', '523' into integers"""
+    s = s.strip().replace(",", "")
+    try:
+        if s.upper().endswith("K"):
+            return int(float(s[:-1]) * 1000)
+        elif s.upper().endswith("M"):
+            return int(float(s[:-1]) * 1_000_000)
+        elif s.upper().endswith("B"):
+            return int(float(s[:-1]) * 1_000_000_000)
+        return int(float(s))
+    except (ValueError, TypeError):
+        return 0
 
 
 # ======== Unified fetch ========
@@ -330,45 +439,63 @@ async def fetch_social_profile(handle: str, platform: str) -> dict:
         raise ValueError(f"Unsupported platform: {platform}. Use 'instagram' or 'youtube'.")
 
 
-async def fetch_comments(handle: str, platform: str) -> list[str]:
+async def fetch_comments(handle: str, platform: str, profile: dict = None) -> list[str]:
     """Fetch comments/captions for sentiment analysis"""
     if platform == "instagram":
         return await fetch_instagram_comments(handle)
+    elif platform == "youtube" and profile:
+        captions = []
+        for post in profile.get("recent_posts", []):
+            if isinstance(post, dict) and post.get("caption"):
+                captions.append(post["caption"])
+            elif isinstance(post, str):
+                captions.append(post)
+        return captions
     return []
 
 
 # ======== Helpers ========
 
 def _detect_niche_from_bio(bio: str, name: str = "", captions: list[str] = None) -> list[str]:
-    """Comprehensive niche detection from bio, name, and captions"""
+    """Comprehensive niche detection from bio, name, and captions.
+    Uses word-boundary matching to avoid false positives (e.g. 'art' in 'partner')."""
+    import re
     all_text = f"{bio} {name} {' '.join(captions[:5]) if captions else ''}".lower()
     niches = []
     
     niche_keywords = {
-        "Fitness": ["fitness", "gym", "workout", "training", "exercise", "bodybuilding", "crossfit", "athlete", "muscle", "lifting"],
-        "Fashion": ["fashion", "style", "outfit", "clothing", "designer", "vogue", "model", "runway", "couture", "ootd"],
-        "Beauty": ["beauty", "makeup", "skincare", "cosmetics", "glam", "foundation", "lipstick"],
+        "Fitness": ["fitness", "gym", "workout", "training", "exercise", "bodybuilding", "crossfit", "athlete", "muscle", "lifting", "gains"],
+        "Fashion": ["fashion", "style", "outfit", "clothing", "designer", "vogue", "runway", "couture", "ootd", "wardrobe"],
+        "Beauty": ["beauty", "makeup", "skincare", "cosmetics", "glam", "foundation", "lipstick", "contour"],
         "Food": ["food", "recipe", "cooking", "chef", "restaurant", "foodie", "baking", "cuisine", "kitchen", "meal"],
         "Travel": ["travel", "adventure", "explore", "wanderlust", "backpack", "destination", "journey", "passport"],
-        "Tech": ["tech", "coding", "developer", "software", "ai", "startup", "gadget", "innovation", "programming", "crypto", "web3"],
-        "Gaming": ["gaming", "gamer", "esports", "twitch", "streamer", "playstation", "xbox", "gameplay"],
+        "Tech": ["tech", "coding", "developer", "software", "startup", "gadget", "innovation", "programming", "crypto", "web3", "saas"],
+        "Gaming": ["gaming", "gamer", "esports", "twitch", "playstation", "xbox", "gameplay", "gaming channel", "valorant", "minecraft", "fortnite", "pubg", "bgmi", "game stream", "live stream"],
         "Music": ["music", "musician", "singer", "producer", "dj", "band", "album", "song", "concert", "rap", "hip hop"],
-        "Photography": ["photography", "photographer", "photo", "camera", "lightroom", "portrait", "lens"],
+        "Photography": ["photography", "photographer", "camera", "lightroom", "portrait", "lens"],
         "Education": ["education", "teacher", "learn", "tutorial", "course", "mentor", "professor", "university"],
         "Wellness": ["wellness", "health", "mental health", "meditation", "yoga", "mindfulness", "nutrition", "holistic"],
-        "Entertainment": ["actor", "actress", "movie", "film", "tv", "comedy", "comedian", "entertainment", "hollywood", "bollywood"],
+        "Entertainment": ["actor", "actress", "movie", "movies", "film", "tv", "comedy", "comedian", "entertainment", "hollywood", "bollywood",
+                          "podcast", "podcaster", "review", "reviews", "reaction", "react", "reacting",
+                          "anime", "manga", "web series", "netflix", "cinema", "roast", "funny", "meme", "memes",
+                          "culture", "pop culture", "tharak"],
         "Sports": ["cricket", "football", "soccer", "basketball", "tennis", "boxing", "ufc", "mma", "wrestling", "nfl", "nba", "wwe", "champion"],
-        "Business": ["entrepreneur", "ceo", "founder", "business", "investor", "company", "brand", "marketing"],
-        "Art": ["art", "artist", "painting", "creative", "design", "illustration", "digital art", "sketch"],
+        "Business": ["entrepreneur", "ceo", "founder", "investor", "marketing", "ecommerce"],
+        "Art": ["artist", "painting", "illustration", "digital art", "sketch", "artwork", "calligraphy", "sculpt"],
         "Parenting": ["mom", "dad", "parent", "family", "kids", "children", "baby", "motherhood", "fatherhood"],
     }
     
     for niche, keywords in niche_keywords.items():
-        if any(kw in all_text for kw in keywords):
-            niches.append(niche)
+        for kw in keywords:
+            # Use word boundary matching to avoid false positives
+            # e.g. "art" should NOT match "partner" or "start"
+            pattern = r'\b' + re.escape(kw) + r'\b'
+            if re.search(pattern, all_text):
+                niches.append(niche)
+                break  # One match per niche is enough
     
     if not niches:
-        if any(kw in all_text for kw in ["official", "public figure", "personal"]):
+        if any(re.search(r'\b' + re.escape(kw) + r'\b', all_text) for kw in ["official", "public figure", "personal"]):
             return ["Entertainment"]
         return ["General"]
     

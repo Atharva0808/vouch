@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import AvatarImg from "@/components/avatar-img";
 import { useState, useEffect } from "react";
 import { Zap, Users, TrendingUp, Shield, Search, BarChart3, Loader } from "lucide-react";
 import Link from "next/link";
@@ -184,13 +185,7 @@ export default function DashboardPage() {
                                         whileHover={{ x: 4 }}
                                         className="flex items-center gap-3 p-3 rounded-xl hover:bg-[var(--color-neo-black)]/3 cursor-pointer"
                                     >
-                                        {inf.avatar_url ? (
-                                            <img src={inf.avatar_url} className="w-8 h-8 rounded-lg neo-border object-cover" alt="" />
-                                        ) : (
-                                            <div className="w-8 h-8 rounded-lg neo-border bg-[var(--color-neo-pink)] flex items-center justify-center text-white text-xs font-bold">
-                                                {inf.name[0]}
-                                            </div>
-                                        )}
+                                        <AvatarImg src={inf.avatar_url} name={inf.name} size={32} rounded="rounded-lg" />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-bold truncate">{inf.name}</p>
                                             <p className="text-[10px] text-[var(--color-neo-black)]/40">{inf.handle} • {inf.platform}</p>

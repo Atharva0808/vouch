@@ -46,6 +46,12 @@ async def generate_brief(req: BriefRequest):
         "report_data": report_data_obj,
     })
     
+    await db.log_activity(
+        action="Campaign Brief Generated",
+        details=f"Created brief for {profile.get('name', '')} x {req.brand_name} — {req.campaign_objective}",
+        icon="report",
+    )
+    
     return {
         "brief": brief_content,
         "influencer_name": profile.get("name", ""),
@@ -78,7 +84,7 @@ async def analyze_comments(influencer_id: str):
     handle = profile.get("handle", "").replace("@", "")
     platform = profile.get("platform", "instagram")
     
-    comments = await social.fetch_comments(handle, platform)
+    comments = await social.fetch_comments(handle, platform, profile)
     
     if not comments:
         raise HTTPException(status_code=404, detail="No comments found")
@@ -112,6 +118,12 @@ async def generate_report(influencer_id: str, report_type: str = "full_analysis"
             "type": report_type,
         }
     })
+    
+    await db.log_activity(
+        action="Report Generated",
+        details=f"{report_type.replace('_', ' ').title()} report created for {profile.get('name', 'Unknown')} ({profile.get('handle', '')})",
+        icon="report",
+    )
     
     return {
         **report_data,
@@ -180,7 +192,13 @@ async def delete_report(report_id: str):
     report = await db.get_report(report_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
+    report_name = report.get("name", "Unknown report")
     await db.delete_report(report_id)
+    await db.log_activity(
+        action="Report Deleted",
+        details=f"Removed report: {report_name}",
+        icon="trash",
+    )
     return {"deleted": True, "id": report_id}
 
 

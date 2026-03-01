@@ -2,7 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { Sparkles, Copy, Check, FileText, User, Briefcase, Target, Loader } from "lucide-react";
+import { Copy, Check, FileText, User, Briefcase, Target, Loader } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { generateBrief, getAllInfluencers, type InfluencerProfile } from "@/lib/api-client";
 
 export default function BriefPage() {
@@ -130,13 +131,13 @@ export default function BriefPage() {
                     {/* Budget */}
                     <div>
                         <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-2 block">
-                            CAMPAIGN BUDGET (optional)
+                            CAMPAIGN BUDGET IN ₹ (optional)
                         </label>
                         <input
                             type="number"
                             value={budget}
                             onChange={(e) => setBudget(e.target.value)}
-                            placeholder="e.g. 5000"
+                            placeholder="e.g. 50000"
                             className="neo-input w-full py-3 px-4 rounded-xl text-sm"
                         />
                     </div>
@@ -217,10 +218,19 @@ export default function BriefPage() {
                                 {copied ? "Copied!" : "Copy"}
                             </motion.button>
                         </div>
-                        <div className="prose prose-sm max-w-none">
-                            <pre className="whitespace-pre-wrap text-sm font-mono text-[var(--color-neo-black)]/80 leading-relaxed bg-[var(--color-neo-black)]/3 p-4 rounded-xl">
+                        <div className="prose prose-sm max-w-none text-[var(--color-neo-black)]/90 bg-[var(--color-neo-black)]/3 p-4 rounded-xl leading-relaxed">
+                            <ReactMarkdown
+                                components={{
+                                    h2: ({ children }) => <h2 className="text-base font-bold mt-4 mb-2 first:mt-0">{children}</h2>,
+                                    h3: ({ children }) => <h3 className="text-sm font-bold mt-3 mb-1">{children}</h3>,
+                                    p: ({ children }) => <p className="text-sm mb-2">{children}</p>,
+                                    ul: ({ children }) => <ul className="list-disc list-inside text-sm mb-2 space-y-1">{children}</ul>,
+                                    li: ({ children }) => <li className="text-sm">{children}</li>,
+                                    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+                                }}
+                            >
                                 {brief}
-                            </pre>
+                            </ReactMarkdown>
                         </div>
                     </motion.div>
                 )}

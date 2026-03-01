@@ -75,6 +75,8 @@ export interface RiskFlag {
     severity: string;
     description: string;
     detected_at: string;
+    source?: string;   // "verified_metric" or "ai_inference"
+    evidence?: string;  // the specific data point the flag is based on
 }
 
 /** Fetch a REAL influencer from social media and run full AI analysis */
@@ -323,13 +325,54 @@ export async function generateReport(influencerId: string, reportType: string = 
     });
 }
 
+/** Download a single report as PDF */
+export async function downloadReportPdf(reportId: string): Promise<void> {
+    const res = await fetch(`${BACKEND_URL}/api/ai/reports/${reportId}/download`);
+    if (!res.ok) throw new Error("Failed to download report");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const disposition = res.headers.get("Content-Disposition");
+    const match = disposition?.match(/filename="?([^";\n]+)"?/);
+    a.download = match ? match[1] : "report.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/** Download multiple reports as one PDF */
+export async function downloadCombinedReportsPdf(reportIds: string[]): Promise<void> {
+    const res = await fetch(`${BACKEND_URL}/api/ai/reports/download-combined`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ report_ids: reportIds }),
+    });
+    if (!res.ok) throw new Error("Failed to download combined report");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const disposition = res.headers.get("Content-Disposition");
+    const match = disposition?.match(/filename="?([^";\n]+)"?/);
+    a.download = match ? match[1] : "reports_combined.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+/** Delete a report */
+export async function deleteReport(reportId: string) {
+    return apiFetch<{ deleted: boolean; id: string }>(`/api/ai/reports/${reportId}`, {
+        method: "DELETE",
+    });
+}
+
 // ======== Activity / Notifications ========
 
 export interface Activity {
     id: string;
-    user_id: string;
     action: string;
     details: string;
+    icon: string;  // 'user-plus', 'alert', 'report', 'trash', 'refresh', 'shield', 'bell'
     created_at: string;
 }
 
@@ -370,4 +413,11 @@ export async function updateUserProfile(userId: string, data: Partial<UserProfil
 /** Get all risk flags across all influencers */
 export async function getAllRiskFlags() {
     return apiFetch<RiskFlag[]>("/api/influencers/risks/all");
+}
+
+/** Delete a single risk flag */
+export async function deleteRiskFlag(flagId: string) {
+    return apiFetch<{ deleted: boolean; id: string }>(`/api/influencers/risks/${flagId}`, {
+        method: "DELETE",
+    });
 }

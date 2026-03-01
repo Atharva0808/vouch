@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { DollarSign, Send, Copy, Check, Loader, Sparkles, TrendingUp } from "lucide-react";
+import { IndianRupee, Send, Copy, Check, Loader, Sparkles, TrendingUp } from "lucide-react";
 import { getMarketRates, generateOutreachHook } from "@/lib/api-client";
 
 interface MarketRates {
@@ -63,7 +63,7 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
         <div className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)]">
             <div className="flex items-center gap-2 mb-6">
                 <div className="p-2 bg-[var(--color-neo-cyan)] neo-border rounded-xl">
-                    <DollarSign size={20} className="text-[var(--color-neo-black)]" />
+                    <IndianRupee size={20} className="text-[var(--color-neo-black)]" />
                 </div>
                 <div>
                     <h3 className="text-lg font-bold text-[var(--color-neo-black)] leading-none">PRICING & OUTREACH</h3>
@@ -86,7 +86,7 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
                         <div className="bg-gradient-to-br from-[var(--color-neo-white)] to-[var(--color-neo-cream)] neo-border rounded-2xl p-4 relative overflow-hidden">
                             <div className="relative z-10">
                                 <p className="text-3xl font-bold text-[var(--color-neo-black)]">
-                                    ${rates.suggested_price.toLocaleString()}
+                                    ₹{rates.suggested_price.toLocaleString('en-IN')}
                                     <span className="text-sm font-normal text-[var(--color-neo-black)]/40 ml-2">/ post</span>
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">
@@ -94,11 +94,11 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
                                         <div className="h-full bg-[var(--color-neo-cyan)] w-[70%]" />
                                     </div>
                                     <span className="text-[10px] font-bold text-[var(--color-neo-black)]/60">
-                                        RANGE: ${rates.range_low.toLocaleString()} - ${rates.range_high.toLocaleString()}
+                                        RANGE: ₹{rates.range_low.toLocaleString('en-IN')} - ₹{rates.range_high.toLocaleString('en-IN')}
                                     </span>
                                 </div>
                                 <div className="flex gap-4 mt-4 text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">
-                                    <span>CPM: ${rates.cpm}</span>
+                                    <span>CPM: ₹{rates.cpm}</span>
                                     <span>Benchmark: {rates.platform_benchmark}</span>
                                     <span className={`px-2 py-0.5 rounded ${rates.confidence === 'high' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                                         Conf: {rates.confidence}

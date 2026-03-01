@@ -202,12 +202,22 @@ async def get_all_risk_flags() -> list[dict]:
     sb = get_supabase()
     result = (
         sb.table("risk_flags")
-        .select("*, influencers(id, name, handle, platform, avatar_url)")
+        .select("id, influencer_id, type, severity, description, source, evidence, detected_at, influencers(id, name, handle, platform, avatar_url)")
         .order("detected_at", desc=True)
         .limit(100)
         .execute()
     )
     return result.data or []
+
+
+async def delete_risk_flag(flag_id: str) -> bool:
+    """Delete a single risk flag by ID"""
+    sb = get_supabase()
+    try:
+        result = sb.table("risk_flags").delete().eq("id", flag_id).execute()
+        return bool(result.data)
+    except Exception:
+        return False
 
 
 # ======== User Profile ========
@@ -250,20 +260,24 @@ async def increment_search_count(user_id: str) -> dict:
 
 # ======== Activity Feed ========
 
-async def log_activity(user_id: str, action: str, details: str = "") -> None:
-    sb = get_supabase()
-    sb.table("activity_feed").insert({
-        "user_id": user_id,
-        "action": action,
-        "details": details,
-    }).execute()
+async def log_activity(action: str, details: str = "", icon: str = "bell") -> None:
+    """Log an activity / notification. Fire-and-forget — never breaks the caller."""
+    try:
+        sb = get_supabase()
+        sb.table("activity_feed").insert({
+            "action": action,
+            "details": details,
+            "icon": icon,
+        }).execute()
+    except Exception:
+        pass  # Never let notification logging break actual operations
 
 
 async def get_activity_feed(limit: int = 20) -> list[dict]:
     sb = get_supabase()
     result = (
         sb.table("activity_feed")
-        .select("*")
+        .select("id, action, details, icon, created_at")
         .order("created_at", desc=True)
         .limit(limit)
         .execute()

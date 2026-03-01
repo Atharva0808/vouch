@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { ArrowLeftRight, Loader, Trophy } from "lucide-react";
 import { getAllInfluencers, compareInfluencers, formatNumber, type InfluencerProfile } from "@/lib/api-client";
+import AvatarImg from "@/components/avatar-img";
 
 export default function ComparePage() {
     const [influencers, setInfluencers] = useState<InfluencerProfile[]>([]);
@@ -101,13 +102,7 @@ export default function ComparePage() {
                     <div className="neo-card rounded-2xl bg-[var(--color-neo-white)] overflow-hidden">
                         <div className="grid grid-cols-3 border-b-3 border-[var(--color-neo-black)]">
                             <div className="p-4 bg-[var(--color-neo-pink)]/20 flex items-center gap-3">
-                                {comparison.influencer_a.avatar_url ? (
-                                    <img src={comparison.influencer_a.avatar_url} className="w-10 h-10 rounded-xl neo-border object-cover" alt="" />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-xl neo-border bg-[var(--color-neo-pink)] flex items-center justify-center text-white font-bold">
-                                        {comparison.influencer_a.name[0]}
-                                    </div>
-                                )}
+                                <AvatarImg src={comparison.influencer_a.avatar_url} name={comparison.influencer_a.name} size={40} rounded="rounded-xl" />
                                 <div>
                                     <p className="font-bold text-sm">{comparison.influencer_a.name}</p>
                                     <p className="text-[10px] text-[var(--color-neo-black)]/40">{comparison.influencer_a.handle}</p>
@@ -121,13 +116,7 @@ export default function ComparePage() {
                                     <p className="font-bold text-sm">{comparison.influencer_b.name}</p>
                                     <p className="text-[10px] text-[var(--color-neo-black)]/40">{comparison.influencer_b.handle}</p>
                                 </div>
-                                {comparison.influencer_b.avatar_url ? (
-                                    <img src={comparison.influencer_b.avatar_url} className="w-10 h-10 rounded-xl neo-border object-cover" alt="" />
-                                ) : (
-                                    <div className="w-10 h-10 rounded-xl neo-border bg-[var(--color-neo-blue)] flex items-center justify-center text-white font-bold">
-                                        {comparison.influencer_b.name[0]}
-                                    </div>
-                                )}
+                                <AvatarImg src={comparison.influencer_b.avatar_url} name={comparison.influencer_b.name} size={40} rounded="rounded-xl" />
                             </div>
                         </div>
 

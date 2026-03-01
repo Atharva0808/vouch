@@ -2,8 +2,8 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { FileText, Download, Calendar, User, Eye, Loader, Plus, X, Search, Sparkles, Shield, Check } from "lucide-react";
-import { getReports, generateReport, getAllInfluencers, type Report, type InfluencerProfile } from "@/lib/api-client";
+import { FileText, Download, Calendar, Eye, Loader, Plus, X, Shield, Check, Trash2, Search } from "lucide-react";
+import { getReports, generateReport, getAllInfluencers, downloadReportPdf, downloadCombinedReportsPdf, deleteReport, type Report, type InfluencerProfile } from "@/lib/api-client";
 
 export default function ReportsPage() {
     const [reports, setReports] = useState<Report[]>([]);
@@ -14,6 +14,9 @@ export default function ReportsPage() {
     const [selectedInfluencerId, setSelectedInfluencerId] = useState("");
     const [selectedTypes, setSelectedTypes] = useState<string[]>(["full_analysis"]);
     const [error, setError] = useState("");
+    const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [downloadingAll, setDownloadingAll] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const toggleType = (id: string) => {
         setSelectedTypes(prev =>
@@ -67,22 +70,78 @@ export default function ReportsPage() {
         });
     };
 
+    const handleDownload = async (reportId: string) => {
+        setDownloadingId(reportId);
+        setError("");
+        try {
+            await downloadReportPdf(reportId);
+        } catch (err) {
+            setError("Failed to download report");
+        }
+        setDownloadingId(null);
+    };
+
+    const handleDownloadAll = async () => {
+        if (reports.length === 0) return;
+        setDownloadingAll(true);
+        setError("");
+        try {
+            await downloadCombinedReportsPdf(reports.map((r) => r.id));
+        } catch (err) {
+            setError("Failed to download combined report");
+        }
+        setDownloadingAll(false);
+    };
+
+    const handleDelete = async (reportId: string) => {
+        if (typeof window !== "undefined" && !window.confirm("Delete this report? This cannot be undone.")) return;
+        setDeletingId(reportId);
+        setError("");
+        try {
+            await deleteReport(reportId);
+            setReports((prev) => prev.filter((r) => r.id !== reportId));
+        } catch (err) {
+            setError("Failed to delete report");
+        }
+        setDeletingId(null);
+    };
+
     return (
         <div className="space-y-6">
-            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end">
+            <motion.div initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex justify-between items-end flex-wrap gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-neo-black">Reports</h1>
                     <p className="text-sm text-neo-black/40 font-semibold">AI-POWERED DECISION MATRIX</p>
                 </div>
-                <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowModal(true)}
-                    className="neo-btn bg-neo-pink text-neo-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
-                >
-                    <Plus size={16} /> Generate New
-                </motion.button>
+                <div className="flex items-center gap-2">
+                    {reports.length > 1 && (
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleDownloadAll}
+                            disabled={downloadingAll}
+                            className="neo-btn bg-neo-green text-neo-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 disabled:opacity-60"
+                        >
+                            {downloadingAll ? <Loader size={16} className="animate-spin" /> : <FileText size={16} />}
+                            {downloadingAll ? "Preparing…" : "Download All as PDF"}
+                        </motion.button>
+                    )}
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowModal(true)}
+                        className="neo-btn bg-neo-pink text-neo-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2"
+                    >
+                        <Plus size={16} /> Generate New
+                    </motion.button>
+                </div>
             </motion.div>
+
+            {error && (
+                <p className="text-xs text-neo-red font-bold p-3 bg-neo-red/10 rounded-xl border-l-4 border-neo-red">
+                    {error}
+                </p>
+            )}
 
             {loading ? (
                 <div className="flex justify-center py-20">
@@ -120,10 +179,22 @@ export default function ReportsPage() {
                                     <motion.button
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
-                                        className="neo-btn bg-neo-yellow p-3 rounded-xl"
+                                        onClick={() => handleDownload(report.id)}
+                                        disabled={downloadingId === report.id}
+                                        className="neo-btn bg-neo-yellow p-3 rounded-xl disabled:opacity-60"
                                         title="Download PDF"
                                     >
-                                        <Download size={16} />
+                                        {downloadingId === report.id ? <Loader size={16} className="animate-spin" /> : <Download size={16} />}
+                                    </motion.button>
+                                    <motion.button
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        onClick={() => handleDelete(report.id)}
+                                        disabled={deletingId === report.id}
+                                        className="neo-btn bg-neo-red/90 text-neo-white p-3 rounded-xl disabled:opacity-60"
+                                        title="Delete report"
+                                    >
+                                        {deletingId === report.id ? <Loader size={16} className="animate-spin" /> : <Trash2 size={16} />}
                                     </motion.button>
                                 </div>
                             </div>

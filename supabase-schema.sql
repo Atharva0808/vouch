@@ -69,9 +69,11 @@ CREATE TABLE IF NOT EXISTS sentiment_analysis (
 CREATE TABLE IF NOT EXISTS risk_flags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
-    type TEXT NOT NULL, -- 'fake_followers', 'controversial_content', 'competitor_promo'
-    severity TEXT NOT NULL, -- 'Low', 'Medium', 'High'
+    type TEXT NOT NULL, -- 'audience_authenticity', 'engagement_quality', 'content_safety', etc.
+    severity TEXT NOT NULL, -- 'Low', 'Medium', 'High', 'Critical'
     description TEXT,
+    source TEXT DEFAULT 'ai_inference', -- 'verified_metric' or 'ai_inference'
+    evidence TEXT, -- the specific data point the flag is based on
     detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -122,6 +124,16 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- 8. Activity Feed / Notifications
+CREATE TABLE IF NOT EXISTS activity_feed (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action TEXT NOT NULL,          -- short title e.g. "Influencer Fetched"
+    details TEXT DEFAULT '',       -- descriptive text e.g. "Added @menofculture from YouTube with 397K followers"
+    icon TEXT DEFAULT 'bell',      -- icon hint for frontend: 'user-plus', 'alert', 'report', 'trash', 'refresh', 'bell'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
 
 -- RLS (Row Level Security) - Basic setup (Enable and add policies as needed)

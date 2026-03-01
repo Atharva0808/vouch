@@ -158,9 +158,49 @@ Brand info: {json.dumps(brand_info) if brand_info else "General brand assessment
 
 # ======== Risk Assessment ========
 
-async def assess_risk(influencer: dict, engagement_data: list[dict], comments_sample: list[str] = []) -> dict:
-    """Comprehensive AI risk assessment"""
+async def assess_risk(influencer: dict, comments_sample: list[str] = []) -> dict:
+    """Comprehensive AI risk assessment using ONLY real, verifiable data points"""
     ai = get_groq()
+
+    # Extract only the real, verifiable metrics for analysis
+    followers = influencer.get("followers", 0)
+    following = influencer.get("following", 0)
+    posts = influencer.get("posts", 0)
+    engagement_rate = influencer.get("engagement_rate", 0)
+    avg_likes = influencer.get("avg_likes", 0)
+    avg_comments = influencer.get("avg_comments", 0)
+    verified = influencer.get("verified", False)
+    bio = influencer.get("bio", "")
+    niche = influencer.get("niche", [])
+    platform = influencer.get("platform", "unknown")
+    name = influencer.get("name", "Unknown")
+
+    # Calculate verifiable ratios
+    follow_ratio = round(following / followers, 3) if followers > 0 else 0
+    likes_to_followers = round((avg_likes / followers) * 100, 2) if followers > 0 else 0
+    comments_to_likes = round((avg_comments / avg_likes) * 100, 2) if avg_likes > 0 else 0
+    posts_per_follower = round(posts / followers * 1000, 2) if followers > 0 else 0
+
+    real_metrics = {
+        "name": name,
+        "platform": platform,
+        "followers": followers,
+        "following": following,
+        "posts": posts,
+        "engagement_rate": engagement_rate,
+        "avg_likes": avg_likes,
+        "avg_comments": avg_comments,
+        "verified": verified,
+        "bio": bio,
+        "niche": niche,
+        "calculated_ratios": {
+            "following_to_followers_ratio": follow_ratio,
+            "likes_to_followers_pct": likes_to_followers,
+            "comments_to_likes_pct": comments_to_likes,
+        }
+    }
+
+    has_comments = len(comments_sample) > 0
 
     response = ai.chat.completions.create(
         model=MODEL,
@@ -168,41 +208,61 @@ async def assess_risk(influencer: dict, engagement_data: list[dict], comments_sa
             {
                 "role": "system",
                 "content": """You are a brand safety and influencer risk assessment expert.
-Analyze the influencer data for all potential risks.
+
+IMPORTANT RULES:
+1. You are given ONLY real, verified profile metrics from social media APIs. Analyze ONLY what you can see.
+2. You do NOT have historical engagement timeline data. Do NOT flag "engagement spikes" or "sudden follower jumps" — you have no timeline to prove that.
+3. Every flag MUST be based on a REAL data point you can reference (e.g. "following/follower ratio is 0.95 which is suspiciously high", "engagement rate of 657% is abnormally high for this follower count").
+4. Each flag must include a "source" field indicating whether it's based on verifiable metrics or AI inference:
+   - "verified_metric" = based on hard numbers you can point to (ratios, engagement rate, follower counts)
+   - "ai_inference" = based on AI analysis of comments/bio content (educated guess, not a hard number)
+5. Do NOT make up risks that aren't supported by the data. If the metrics look normal, say so.
+6. Be honest — if you can't determine something from the data, don't flag it.
+
 Return JSON:
 {
   "overall_risk": "low|medium|high",
-  "bot_percentage": <estimated 0-100>,
+  "bot_percentage": <estimated 0-100, based ONLY on engagement rate vs follower count analysis>,
   "flags": [
     {
-      "type": "<flag type>",
+      "type": "<flag type: audience_authenticity|engagement_quality|content_safety|follower_ratio|bot_activity|low_engagement>",
       "severity": "low|medium|high|critical",
-      "description": "<detailed description>",
-      "detected_at": "<current date>"
-    },
-    ...
+      "description": "<specific description referencing ACTUAL numbers from the data>",
+      "detected_at": "<current date>",
+      "source": "verified_metric|ai_inference",
+      "evidence": "<the specific metric or data point this is based on>"
+    }
   ],
   "brand_safety_score": <0-100>,
   "recommendations": ["<recommendation1>", ...]
 }
-Check for:
-- Bot followers/engagement
-- Controversial content history
-- Engagement manipulation
-- Audience authenticity
-- Content consistency
-- Legal/compliance risks
+
+VERIFIED METRIC examples (flag these):
+- Following/follower ratio > 0.8 for large accounts → suspicious
+- Engagement rate abnormally high (>20% for accounts with >10K followers) or abnormally low (<0.5%) → flag it
+- Very low avg likes/comments relative to follower count → possible fake followers
+- 0 posts but many followers → suspicious
+
+AI INFERENCE examples (flag these only if comments are provided):
+- Bot-like comment patterns (generic, repetitive)
+- Inappropriate content in bio or captions
+- Content inconsistency with claimed niche
+
 Return ONLY valid JSON, no extra text."""
             },
             {
                 "role": "user",
-                "content": f"""Influencer: {json.dumps(influencer)}
-Recent Engagement Data: {json.dumps(engagement_data[-14:] if engagement_data else [])}
-Sample Comments: {json.dumps(comments_sample[:20])}"""
+                "content": f"""Analyze this influencer using ONLY verified metrics:
+
+VERIFIED PROFILE DATA:
+{json.dumps(real_metrics, indent=2)}
+
+REAL COMMENTS ({"available" if has_comments else "NOT available — skip comment analysis"}):
+{json.dumps(comments_sample[:20]) if has_comments else "[]"}"""
             }
         ],
         response_format={"type": "json_object"},
-        temperature=0.3,
+        temperature=0.2,
     )
 
     return json.loads(response.choices[0].message.content or "{}")
@@ -366,31 +426,47 @@ Return ONLY valid JSON, no extra text."""
 # ======== Market Rate Estimation (Feature 4) ========
 
 async def estimate_market_rates(influencer: dict) -> dict:
-    """Calculate fair market rates based on platform benchmarks"""
+    """Calculate fair market rates based on Indian influencer marketing benchmarks (INR)"""
     followers = influencer.get("followers", 0)
     er = influencer.get("engagement_rate", 0)
     platform = influencer.get("platform", "instagram")
+    niches = influencer.get("niche", [])
     
-    # Base rates per 1k followers (USD)
-    base_rate = 15.0 if platform == "instagram" else 25.0
+    # Base rates per 1K followers (INR) — Realistic Indian market benchmarks
+    # Instagram: ~₹150/1K followers for a standard post (1M followers = ~₹1.5 Lakhs)
+    # YouTube: ~₹250/1K subscribers for a dedicated video (1M subs = ~₹2.5 Lakhs)
+    base_rate = 150.0 if platform == "instagram" else 250.0
     
-    # Engagement multiplier (higher ER = higher value)
-    er_multiplier = 1.0 + (er / 5.0) # Bonus for every 5% ER
+    # 1. Niche Multiplier (Different industries pay differently)
+    niche_multiplier = 1.0
+    # High Premium (B2B, Tech, Crypto, Finance)
+    if any(n.lower() in ["tech", "business", "finance", "crypto", "education"] for n in niches):
+        niche_multiplier = 1.5
+    # Medium Premium (Gaming, Beauty, Fitness, Travel)
+    elif any(n.lower() in ["gaming", "beauty", "fitness", "travel"] for n in niches):
+        niche_multiplier = 1.2
+    # Standard / Broad (Entertainment, Comedy, Lifestyle)
+    elif any(n.lower() in ["entertainment", "comedy", "lifestyle", "music"] for n in niches):
+        niche_multiplier = 0.8
+    
+    # 2. Engagement multiplier (higher ER = higher value)
+    er_multiplier = 1.0 + (er / 5.0)  # Bonus: +20% for every 5% ER
     
     # Core calculation
-    fair_price = (followers / 1000) * base_rate * er_multiplier
+    fair_price = (followers / 1000) * base_rate * er_multiplier * niche_multiplier
     
     # Add variance for range
     low_end = fair_price * 0.85
     high_end = fair_price * 1.25
     
     return {
-        "suggested_price": round(fair_price, 2),
-        "range_low": round(low_end, 2),
-        "range_high": round(high_end, 2),
+        "suggested_price": round(fair_price, 0),
+        "range_low": round(low_end, 0),
+        "range_high": round(high_end, 0),
         "cpm": round((fair_price / followers) * 1000, 2) if followers > 0 else 0,
         "platform_benchmark": platform,
-        "confidence": "high" if er > 0 else "medium"
+        "confidence": "high" if er > 0 else "medium",
+        "currency": "INR",
     }
 
 
