@@ -39,6 +39,12 @@ async def fetch_influencer(req: SocialFetchRequest):
         
         # 4. Run AI analysis — match score is now calculated in Campaign Brief
         #    where brand context is available. No longer done here.
+        match_result = {
+            "match_score": 0, 
+            "recommendation": "Pending Brief", 
+            "strengths": [], 
+            "weaknesses": []
+        }
         
         # Risk assessment — uses ONLY real profile metrics + real comments (no synthetic timeline)
         risk_result = await ai.assess_risk(profile, comments)
@@ -153,6 +159,8 @@ async def fetch_influencer(req: SocialFetchRequest):
         }
     
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

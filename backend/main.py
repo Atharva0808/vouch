@@ -2,6 +2,7 @@
 Vouch — FastAPI Backend
 Main application entry point
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -15,10 +16,23 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — allow everything for development to avoid fetch errors
+# CORS — allow everything for development and specific production domains
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://vouch-xi.vercel.app",
+    "https://vouch.vercel.app",
+]
+
+# Add FRONTEND_URL from environment if it's not already in the list
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in origins:
+    origins.append(frontend_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
+    allow_origin_regex="https://.*\\.vercel\\.app", # Allow all Vercel preview deployments
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

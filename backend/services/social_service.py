@@ -494,7 +494,7 @@ def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:
         avg_likes = sum(all_likes) / len(all_likes) if all_likes else 0
         spike_threshold = avg_likes * 3 if avg_likes > 0 else float("inf")
 
-        timeline = []
+        raw_timeline = []
         for post in recent_posts:
             if not isinstance(post, dict):
                 continue
@@ -513,15 +513,34 @@ def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:
             comments = post.get("comments", 0)
             is_spike = likes > spike_threshold and avg_likes > 0
 
-            timeline.append({
+            raw_timeline.append({
                 "date": date_str,
-                "followers": base_followers,
                 "likes": likes,
                 "comments": comments,
-                "shares": int(likes * 0.05) if likes else 0,
-                "organic": not is_spike,
+                "is_spike": is_spike
             })
 
+        # AGGREGATE BY DATE to avoid "duplicate constrained values" in ON CONFLICT upsert
+        aggregated = {}
+        for entry in raw_timeline:
+            d = entry["date"]
+            if d not in aggregated:
+                aggregated[d] = {
+                    "date": d,
+                    "followers": base_followers,
+                    "likes": 0,
+                    "comments": 0,
+                    "shares": 0,
+                    "organic": True
+                }
+            
+            aggregated[d]["likes"] += entry["likes"]
+            aggregated[d]["comments"] += entry["comments"]
+            aggregated[d]["shares"] += int(entry["likes"] * 0.05) if entry["likes"] else 0
+            if entry["is_spike"]:
+                aggregated[d]["organic"] = False
+
+        timeline = list(aggregated.values())
         # Sort by date ascending
         timeline.sort(key=lambda x: x["date"])
         return timeline
