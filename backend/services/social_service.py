@@ -13,6 +13,8 @@ import random
 load_dotenv()
 
 RAPIDAPI_KEY = os.getenv("RAPIDAPI_KEY", "")
+print(f"DEBUG: Social Service loaded with RapidAPI Key: {RAPIDAPI_KEY[:4]}...{RAPIDAPI_KEY[-4:] if len(RAPIDAPI_KEY) > 8 else ''}")
+
 
 HEADERS = {
     "x-rapidapi-key": RAPIDAPI_KEY,
@@ -45,7 +47,13 @@ async def fetch_instagram_profile(handle: str) -> dict:
         )
         
         if profile_resp.status_code != 200:
-            raise Exception(f"Instagram Profile API error: {profile_resp.status_code}")
+            error_msg = f"Instagram Profile API error: {profile_resp.status_code}"
+            try:
+                error_data = profile_resp.json()
+                error_msg += f" - {error_data.get('message', error_data)}"
+            except:
+                error_msg += f" - {profile_resp.text[:100]}"
+            raise Exception(error_msg)
         
         p_data = profile_resp.json().get("result", {})
         
@@ -149,8 +157,12 @@ async def fetch_instagram_profile(handle: str) -> dict:
         return res
 
 
-async def fetch_instagram_comments(handle: str) -> list[str]:
+async def fetch_instagram_comments(handle: str, profile: dict = None) -> list[str]:
     """Fetch real post captions for sentiment analysis"""
+    # Optimization: If we already have the profile with recent_posts, use them
+    if profile and profile.get("recent_posts"):
+        return [p.get("caption", "") for p in profile.get("recent_posts", []) if isinstance(p, dict) and p.get("caption")]
+
     headers = {
         **HEADERS,
         "x-rapidapi-host": INSTAGRAM_HOST,
@@ -420,7 +432,7 @@ async def fetch_social_profile(handle: str, platform: str) -> dict:
 async def fetch_comments(handle: str, platform: str, profile: dict = None) -> list[str]:
     """Fetch comments/captions for sentiment analysis"""
     if platform == "instagram":
-        return await fetch_instagram_comments(handle)
+        return await fetch_instagram_comments(handle, profile)
     elif platform == "youtube" and profile:
         captions = []
         for post in profile.get("recent_posts", []):
