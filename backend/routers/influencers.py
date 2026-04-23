@@ -11,6 +11,7 @@ from services import ai_service as ai
 from services import social_service as social
 from services.pdf_service import profile_to_pdf
 from datetime import datetime
+import asyncio
 
 router = APIRouter(prefix="/api/influencers", tags=["Influencers"])
 
@@ -35,12 +36,27 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         
         # 3.5 Detect accurate niche using AI (replaces regex fallback)
         captions = [p.get("caption", "") for p in profile.get("recent_posts", []) if isinstance(p, dict) and p.get("caption")]
-        ai_niches = await ai.detect_niche(profile.get("bio", ""), profile.get("name", ""), captions)
+        
+        # 4. Run AI analysis concurrently to save massive amounts of time
+        async def get_sentiment():
+            if comments:
+                res = await ai.analyze_sentiment(comments, profile.get("name", ""))
+                return res
+            return {}
+
+        niche_task = ai.detect_niche(profile.get("bio", ""), profile.get("name", ""), captions)
+        risk_task = ai.assess_risk(profile, comments)
+        sentiment_task = get_sentiment()
+        fake_task = ai.detect_fake_engagement(timeline, profile)
+        roi_task = ai.predict_roi(profile)
+        
+        ai_niches, risk_result, sentiment, fake_result, roi_result = await asyncio.gather(
+            niche_task, risk_task, sentiment_task, fake_task, roi_task
+        )
+        
         if ai_niches and ai_niches != ["General"]:
             profile["niche"] = ai_niches
-        
-        # 4. Run AI analysis — match score is now calculated in Campaign Brief
-        #    where brand context is available. No longer done here.
+            
         match_result = {
             "match_score": 0, 
             "recommendation": "Pending Brief", 
@@ -48,8 +64,7 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
             "weaknesses": []
         }
         
-        # Risk assessment — uses ONLY real profile metrics + real comments (no synthetic timeline)
-        risk_result = await ai.assess_risk(profile, comments)
+        # Risk assessment
         profile["risk_level"] = risk_result.get("overall_risk", "medium")
         
         # Calculate bot percentage from REAL metrics (don't trust AI's lazy 5% default)
@@ -106,16 +121,10 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         profile["bot_percentage"] = bot_score
         
         # Sentiment
-        sentiment = {}
-        if comments:
-            sentiment = await ai.analyze_sentiment(comments, profile.get("name", ""))
+        if sentiment:
             profile["brand_safety_score"] = sentiment.get("brand_safety_score", 0)
         
-        # Fake engagement detection
-        fake_result = await ai.detect_fake_engagement(timeline, profile)
-        
         # ROI prediction
-        roi_result = await ai.predict_roi(profile)
         profile["predicted_roi"] = roi_result.get("predicted_roi", 0)
         
         # 5. Save everything to Supabase

@@ -9,6 +9,7 @@ import httpx
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
+import asyncio
 
 load_dotenv()
 
@@ -39,11 +40,18 @@ async def fetch_instagram_profile(handle: str) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
         
-        # 1. Fetch Profile Data
-        profile_resp = await client.post(
-            f"https://{INSTAGRAM_HOST}/api/instagram/profile",
-            json={"username": clean_handle},
-            headers=headers,
+        # 1 & 2. Fetch Profile and Posts concurrently
+        profile_resp, posts_resp = await asyncio.gather(
+            client.post(
+                f"https://{INSTAGRAM_HOST}/api/instagram/profile",
+                json={"username": clean_handle},
+                headers=headers,
+            ),
+            client.post(
+                f"https://{INSTAGRAM_HOST}/api/instagram/posts",
+                json={"username": clean_handle},
+                headers=headers,
+            )
         )
         
         if profile_resp.status_code != 200:
@@ -59,13 +67,6 @@ async def fetch_instagram_profile(handle: str) -> dict:
         
         if not p_data:
             raise Exception(f"No profile data found for @{clean_handle}")
-        
-        # 2. Fetch Recent Posts for real engagement metrics
-        posts_resp = await client.post(
-            f"https://{INSTAGRAM_HOST}/api/instagram/posts",
-            json={"username": clean_handle},
-            headers=headers,
-        )
         
         avg_likes = 0
         avg_comments = 0
@@ -317,20 +318,27 @@ async def fetch_youtube_channel(handle: str) -> dict:
                             "views": vid.get("stats", {}).get("views", 0) if isinstance(vid.get("stats"), dict) else 0,
                         })
                 
-                # Step 4: Get real like/comment stats from video details
+                # Step 4: Get real like/comment stats from video details concurrently
                 total_likes = 0
                 total_comments = 0
                 videos_with_data = 0
                 
-                for vid_id in video_ids[:5]:  # Limit to 5 API calls
+                async def fetch_vid(vid_id):
                     try:
-                        vid_resp = await client.get(
+                        resp = await client.get(
                             f"https://{YOUTUBE_HOST}/video/details/",
                             params={"id": vid_id, "hl": "en", "gl": "US"},
                             headers=headers,
                         )
-                        
-                        if vid_resp.status_code == 200:
+                        return vid_id, resp
+                    except Exception:
+                        return vid_id, None
+                
+                vid_results = await asyncio.gather(*[fetch_vid(v_id) for v_id in video_ids[:5]])
+                
+                for vid_id, vid_resp in vid_results:
+                    if vid_resp and vid_resp.status_code == 200:
+                        try:
                             vid_data = vid_resp.json()
                             vid_stats = vid_data.get("stats", {})
                             
@@ -358,8 +366,8 @@ async def fetch_youtube_channel(handle: str) -> dict:
                                     if isinstance(thumbs, list) and thumbs:
                                         rp["thumbnail"] = thumbs[-1].get("url", "")
                                     break
-                    except Exception:
-                        continue  # Skip failed video detail requests
+                        except Exception:
+                            continue
                 
                 if videos_with_data > 0:
                     avg_likes = total_likes // videos_with_data
