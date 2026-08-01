@@ -7,6 +7,7 @@ import { Search, Sparkles, Filter, ChevronDown, Loader, Plus, Instagram, Youtube
 import { fetchInfluencer, searchInfluencers, deleteInfluencer, formatNumber, type InfluencerProfile } from "@/lib/api-client";
 import Link from "next/link";
 import AvatarImg from "@/components/avatar-img";
+import SkeletonShimmer from "@/components/skeleton-shimmer";
 
 const platformOptions = ["all", "instagram", "youtube", "tiktok", "facebook"];
 const nicheOptions = ["all", "Fitness", "Fashion", "Beauty", "Food", "Travel", "Tech", "Gaming", "Lifestyle", "Education"];
@@ -251,6 +252,9 @@ function SearchContent() {
                     </motion.div>
                 )
             }
+
+            {/* Skeleton Loading State */}
+            {loading && <SkeletonShimmer count={3} />}
 
             {/* Results */}
             {

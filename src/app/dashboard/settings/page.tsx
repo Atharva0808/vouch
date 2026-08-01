@@ -3,10 +3,12 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function SettingsPage() {
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -26,8 +28,13 @@ export default function SettingsPage() {
             const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
 
-            const userId = user?.id || "00000000-0000-0000-0000-000000000000";
-            const userEmail = user?.email || "admin@example.com";
+            if (!user) {
+                router.push("/auth/login");
+                return;
+            }
+
+            const userId = user.id;
+            const userEmail = user.email || "";
 
             // 2. Try to fetch profile from backend
             try {

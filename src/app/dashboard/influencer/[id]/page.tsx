@@ -19,6 +19,8 @@ import RiskPanel from "@/components/risk-panel";
 import AvatarImg from "@/components/avatar-img";
 import OutreachPanel from "@/components/outreach-panel";
 import ContentSafetyAudit from "@/components/content-safety-audit";
+import RadialGauge from "@/components/radial-gauge";
+import FloatingActionBar from "@/components/floating-action-bar";
 
 export default function InfluencerDetailPage() {
     const params = useParams();
@@ -202,11 +204,7 @@ export default function InfluencerDetailPage() {
                         const strengthColor = strength >= 80 ? "bg-[var(--color-neo-green)]" : strength >= 60 ? "bg-[var(--color-neo-green)]" : strength >= 40 ? "bg-[var(--color-neo-yellow)]" : "bg-[var(--color-neo-red)]";
 
                         return (
-                            <div className={`neo-card rounded-2xl p-5 text-center min-w-[140px] border-2 border-[var(--color-neo-black)] shadow-[4px_4px_0px_0px_var(--color-neo-black)] shrink-0 ${strengthColor}`}>
-                                <p className="text-[10px] sm:text-xs font-black uppercase text-[var(--color-neo-black)]/60 tracking-widest mb-1">PROFILE STRENGTH</p>
-                                <p className="text-2xl md:text-3xl font-black text-[var(--color-neo-black)] leading-none">{strength}%</p>
-                                <p className="text-[10px] sm:text-xs font-bold uppercase mt-1 tracking-widest">{strengthLabel}</p>
-                            </div>
+                            <RadialGauge score={strength} label="PROFILE STRENGTH" size={90} strokeWidth={9} />
                         );
                     })()}
                 </div>
@@ -299,6 +297,12 @@ export default function InfluencerDetailPage() {
                     <OutreachPanel influencerId={id} />
                 </motion.div>
             </div>
+
+            <FloatingActionBar
+                influencerId={id}
+                handle={profile.handle}
+                onDownloadPdf={handleDownload}
+            />
         </div>
     );
 }
