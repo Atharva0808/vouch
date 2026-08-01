@@ -37,6 +37,25 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         # Clean handle: strip spaces, @, lowercase
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
         
+        # Check 24-hour database cache for sub-100ms instant response
+        cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform)
+        if cached_profile and cached_profile.get("updated_at"):
+            try:
+                last_updated = datetime.fromisoformat(cached_profile["updated_at"].replace("Z", ""))
+                if (datetime.utcnow() - last_updated).total_seconds() < 86400:  # 24 hours
+                    timeline = await db.get_engagement_data(cached_profile["id"])
+                    sentiment = await db.get_sentiment(cached_profile["id"])
+                    risk_flags = await db.get_risk_flags(cached_profile["id"])
+                    return {
+                        "profile": cached_profile,
+                        "engagement": timeline,
+                        "sentiment": sentiment or {},
+                        "risk": {"overall_risk": cached_profile.get("risk_level", "low"), "flags": risk_flags},
+                        "cached": True
+                    }
+            except Exception:
+                pass
+        
         # 1. Fetch real profile from social media
         profile = await social.fetch_social_profile(clean_handle, req.platform)
         

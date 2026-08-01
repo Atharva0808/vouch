@@ -45,19 +45,25 @@ export default function ReportsPage() {
         setLoading(false);
     };
 
+    const [toastMessage, setToastMessage] = useState("");
+
     const handleGenerate = async () => {
         if (!selectedInfluencerId) return;
         setGenerating(true);
         setError("");
+        setToastMessage("⚡ Report generation started in background...");
         try {
             for (const type of selectedTypes) {
                 await generateReport(selectedInfluencerId, type);
             }
             setShowModal(false);
             setSelectedTypes(["full_analysis"]);
+            setToastMessage("✅ Reports generated successfully!");
+            setTimeout(() => setToastMessage(""), 4000);
             loadData(); // Refresh list
         } catch (err: any) {
             setError(err.message || "Failed to generate report");
+            setToastMessage("");
         }
         setGenerating(false);
     };
@@ -136,6 +142,12 @@ export default function ReportsPage() {
                     </motion.button>
                 </div>
             </motion.div>
+
+            {toastMessage && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="neo-card rounded-2xl p-4 bg-neo-green text-neo-black font-bold text-sm">
+                    {toastMessage}
+                </motion.div>
+            )}
 
             {error && (
                 <p className="text-xs text-neo-red font-bold p-3 bg-neo-red/10 rounded-xl border-l-4 border-neo-red">

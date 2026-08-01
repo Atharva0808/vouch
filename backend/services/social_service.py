@@ -592,3 +592,16 @@ def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:
 
     return timeline
 
+
+def calculate_cross_platform_reach(profiles: list[dict]) -> dict:
+    """Calculate combined total audience reach across multiple platform channels"""
+    total_followers = sum(p.get("followers", 0) for p in profiles if isinstance(p, dict))
+    avg_er = round(sum(p.get("engagement_rate", 0) for p in profiles if isinstance(p, dict)) / max(1, len(profiles)), 2)
+    platforms = list(set(p.get("platform", "") for p in profiles if isinstance(p, dict) and p.get("platform")))
+    return {
+        "total_followers": total_followers,
+        "average_engagement_rate": avg_er,
+        "platforms_count": len(platforms),
+        "platforms": platforms
+    }
+

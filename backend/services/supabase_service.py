@@ -266,7 +266,22 @@ async def get_user_profile(user_id: str) -> dict | None:
             .maybe_single()
             .execute()
         )
-        return result.data if result else None
+        profile = result.data if result else None
+        if profile and profile.get("last_search_reset"):
+            try:
+                last_reset = datetime.fromisoformat(profile["last_search_reset"].replace("Z", ""))
+                if (datetime.utcnow() - last_reset).days >= 30:
+                    # Auto-reset monthly quota
+                    now_str = datetime.utcnow().isoformat()
+                    updated = sb.table("user_profiles").update({
+                        "searches_used": 0,
+                        "last_search_reset": now_str
+                    }).eq("id", user_id).execute()
+                    if updated.data:
+                        profile = updated.data[0]
+            except Exception:
+                pass
+        return profile
     except Exception:
         return None
 
