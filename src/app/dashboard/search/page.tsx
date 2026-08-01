@@ -35,6 +35,7 @@ function SearchContent() {
     const [error, setError] = useState("");
     const [fetchHandle, setFetchHandle] = useState("");
     const [fetchPlatform, setFetchPlatform] = useState("instagram");
+    const [fetchStatus, setFetchStatus] = useState("Analyzing...");
 
     useEffect(() => {
         if (initialQ) {
@@ -70,15 +71,24 @@ function SearchContent() {
     const handleFetchNew = async () => {
         if (!fetchHandle.trim()) return;
         setFetchingNew(true);
+        setFetchStatus("🌐 Pulling profile...");
         setError("");
+
+        const timer1 = setTimeout(() => setFetchStatus("🧠 AI analysis..."), 2500);
+        const timer2 = setTimeout(() => setFetchStatus("⚡ Indexing..."), 5000);
+
         try {
             const data = await fetchInfluencer(fetchHandle, fetchPlatform);
             // Add the new profile to results
             setResults((prev) => [data.profile, ...prev.filter(inf => inf.id !== data.profile.id)]);
         } catch (err: any) {
             setError(err.message || "Failed to fetch influencer data");
+        } finally {
+            clearTimeout(timer1);
+            clearTimeout(timer2);
+            setFetchingNew(false);
+            setFetchStatus("Analyzing...");
         }
-        setFetchingNew(false);
     };
 
     const getRiskColor = (risk: string) => {
@@ -145,7 +155,7 @@ function SearchContent() {
                                 <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
                                     <Loader size={16} />
                                 </motion.div>
-                                Analyzing...
+                                {fetchStatus}
                             </>
                         ) : (
                             <>

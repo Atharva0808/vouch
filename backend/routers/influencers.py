@@ -149,32 +149,32 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         influencer_id = saved_profile.get("id", "")
         
         if influencer_id:
-            await db.save_engagement_data(influencer_id, timeline)
+            follower_str = f"{profile.get('followers', 0):,}"
+            risk_lvl = risk_result.get("overall_risk", "low")
+            
+            db_tasks = [
+                db.save_engagement_data(influencer_id, timeline),
+                db.increment_search_count(x_user_id),
+                db.log_activity(
+                    user_id=x_user_id,
+                    action="Influencer Fetched",
+                    details=f"Added {profile.get('name', '')} ({profile.get('handle', '')}) from {req.platform} — {follower_str} followers, {profile.get('risk_level', 'unknown')} risk",
+                    icon="user-plus",
+                )
+            ]
             if sentiment:
-                await db.save_sentiment(influencer_id, sentiment)
+                db_tasks.append(db.save_sentiment(influencer_id, sentiment))
             if risk_result.get("flags"):
-                await db.save_risk_flags(influencer_id, risk_result["flags"])
-        
-        # Log activity
-        follower_str = f"{profile.get('followers', 0):,}"
-        await db.log_activity(
-            user_id=x_user_id,
-            action="Influencer Fetched",
-            details=f"Added {profile.get('name', '')} ({profile.get('handle', '')}) from {req.platform} — {follower_str} followers, {profile.get('risk_level', 'unknown')} risk",
-            icon="user-plus",
-        )
-        # Alert on high/critical risk
-        risk_lvl = risk_result.get("overall_risk", "low")
-        if risk_lvl in ("high", "critical"):
-            await db.log_activity(
-                user_id=x_user_id,
-                action=f"⚠️ {risk_lvl.upper()} Risk Detected",
-                details=f"{profile.get('name', '')} ({profile.get('handle', '')}) flagged as {risk_lvl} risk — {len(risk_result.get('flags', []))} issue(s) found",
-                icon="alert",
-            )
-        
-        # Increment search count for user profile quota
-        await db.increment_search_count(x_user_id)
+                db_tasks.append(db.save_risk_flags(influencer_id, risk_result["flags"]))
+            if risk_lvl in ("high", "critical"):
+                db_tasks.append(db.log_activity(
+                    user_id=x_user_id,
+                    action=f"⚠️ {risk_lvl.upper()} Risk Detected",
+                    details=f"{profile.get('name', '')} ({profile.get('handle', '')}) flagged as {risk_lvl} risk — {len(risk_result.get('flags', []))} issue(s) found",
+                    icon="alert",
+                ))
+            
+            await asyncio.gather(*db_tasks, return_exceptions=True)
 
         return {
             "profile": saved_profile,
