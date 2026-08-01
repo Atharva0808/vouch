@@ -2,10 +2,21 @@
 Supabase service — handles all database operations
 """
 import os
+import uuid
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 load_dotenv()
+
+
+def is_valid_uuid(val: str) -> bool:
+    if not val or not isinstance(val, str):
+        return False
+    try:
+        uuid.UUID(str(val))
+        return True
+    except (ValueError, AttributeError, TypeError):
+        return False
 
 
 def get_supabase() -> Client:
@@ -26,10 +37,16 @@ async def upsert_influencer(data: dict, user_id: str) -> dict:
     return result.data[0] if result.data else {}
 
 
-async def get_influencer(influencer_id: str) -> dict:
+async def get_influencer(influencer_id: str) -> dict | None:
+    if not is_valid_uuid(influencer_id):
+        return None
     sb = get_supabase()
-    result = sb.table("influencers").select("*").eq("id", influencer_id).single().execute()
-    return result.data
+    try:
+        result = sb.table("influencers").select("*").eq("id", influencer_id).single().execute()
+        return result.data
+    except Exception:
+        return None
+
 
 
 async def get_influencer_by_handle(handle: str, platform: str) -> dict | None:
@@ -102,6 +119,8 @@ async def save_engagement_data(influencer_id: str, data: list[dict]) -> None:
 
 
 async def get_engagement_data(influencer_id: str) -> list[dict]:
+    if not is_valid_uuid(influencer_id):
+        return []
     sb = get_supabase()
     result = (
         sb.table("engagement_data")
@@ -124,6 +143,8 @@ async def save_sentiment(influencer_id: str, data: dict) -> None:
 
 
 async def get_sentiment(influencer_id: str) -> dict | None:
+    if not is_valid_uuid(influencer_id):
+        return None
     sb = get_supabase()
     try:
         result = (
@@ -150,6 +171,8 @@ async def save_risk_flags(influencer_id: str, flags: list[dict]) -> None:
 
 
 async def get_risk_flags(influencer_id: str) -> list[dict]:
+    if not is_valid_uuid(influencer_id):
+        return []
     sb = get_supabase()
     result = (
         sb.table("risk_flags")
@@ -178,6 +201,8 @@ async def get_reports(user_id: str | None = None) -> list[dict]:
 
 
 async def get_report(report_id: str) -> dict | None:
+    if not is_valid_uuid(report_id):
+        return None
     sb = get_supabase()
     try:
         result = (
@@ -230,6 +255,8 @@ async def delete_risk_flag(flag_id: str) -> bool:
 # ======== User Profile ========
 
 async def get_user_profile(user_id: str) -> dict | None:
+    if not is_valid_uuid(user_id):
+        return None
     sb = get_supabase()
     try:
         result = (

@@ -16,7 +16,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS — allow everything for development and specific production domains
+# CORS origins configuration
 origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -24,8 +24,11 @@ origins = [
     "http://127.0.0.1:8000",
     "https://vouch-xi.vercel.app",
     "https://vouch.vercel.app",
-    "*", # Temporary allow all for local dev stability
 ]
+
+env = os.getenv("ENVIRONMENT", "development").lower()
+if env in ["development", "dev", "local"]:
+    origins.append("*")
 
 # Add FRONTEND_URL from environment if it's not already in the list
 frontend_url = os.getenv("FRONTEND_URL")

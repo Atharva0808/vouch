@@ -15,6 +15,11 @@ export default function SentimentPanel({ data }: SentimentPanelProps) {
         neutral: { icon: Minus, color: "bg-neo-yellow", textColor: "text-yellow-700" },
     };
 
+    const positive = data?.positive ?? 0;
+    const neutral = data?.neutral ?? 0;
+    const negative = data?.negative ?? 0;
+    const themes = data?.themes ?? [];
+
     return (
         <motion.div
             initial={{ y: 30, opacity: 0 }}
@@ -37,27 +42,27 @@ export default function SentimentPanel({ data }: SentimentPanelProps) {
                 <div className="flex rounded-xl neo-border overflow-hidden h-10">
                     <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${data.positive}%` }}
+                        animate={{ width: `${positive}%` }}
                         transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
                         className="bg-neo-green flex items-center justify-center"
                     >
-                        <span className="text-xs font-bold text-neo-black">{data.positive}%</span>
+                        <span className="text-xs font-bold text-neo-black">{positive}%</span>
                     </motion.div>
                     <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${data.neutral}%` }}
+                        animate={{ width: `${neutral}%` }}
                         transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
                         className="bg-neo-yellow flex items-center justify-center border-x-2 border-neo-black"
                     >
-                        <span className="text-xs font-bold text-neo-black">{data.neutral}%</span>
+                        <span className="text-xs font-bold text-neo-black">{neutral}%</span>
                     </motion.div>
                     <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${data.negative}%` }}
+                        animate={{ width: `${negative}%` }}
                         transition={{ delay: 0.9, duration: 0.8, ease: "easeOut" }}
                         className="bg-neo-red flex items-center justify-center"
                     >
-                        <span className="text-xs font-bold text-neo-white">{data.negative}%</span>
+                        <span className="text-xs font-bold text-neo-white">{negative}%</span>
                     </motion.div>
                 </div>
                 <div className="flex justify-between mt-2">
@@ -73,8 +78,9 @@ export default function SentimentPanel({ data }: SentimentPanelProps) {
                     Common Themes
                 </h4>
                 <div className="space-y-2">
-                    {data.themes.map((theme, i) => {
-                        const config = sentimentConfig[theme.sentiment as keyof typeof sentimentConfig];
+                    {themes.map((theme, i) => {
+                        const key = (theme.sentiment || "neutral").toLowerCase() as keyof typeof sentimentConfig;
+                        const config = sentimentConfig[key] || sentimentConfig.neutral;
                         const Icon = config.icon;
                         return (
                             <motion.div

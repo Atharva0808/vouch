@@ -5,7 +5,12 @@
 
 import { createClient } from "./supabase-browser";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+function getBackendUrl(): string {
+    const url = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+    return url.endsWith("/") ? url.slice(0, -1) : url;
+}
+
+const BACKEND_URL = getBackendUrl();
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     // Attempt to get user session to pass to backend for isolation

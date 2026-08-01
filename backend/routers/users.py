@@ -44,26 +44,33 @@ def save_local_settings(user_id: str, settings: dict):
 
 @router.get("/{user_id}")
 async def get_profile(user_id: str):
-    profile = await db.get_user_profile(user_id)
+    profile = await db.get_user_profile(user_id) or {}
     if not profile:
         profile = await db.upsert_user_profile({"id": user_id})
     local_settings = get_local_settings(user_id)
-    profile.update(local_settings)
-    return profile
+    # Merge local settings into profile, preferring DB values when present
+    merged = {**local_settings, **profile}
+    return merged
 
 @router.post("/{user_id}")
 async def update_profile(user_id: str, profile: UserProfileUpdate):
     data = profile.dict(exclude_unset=True)
-    # Filter out columns that do not exist in the database original schema
-    db_data = {k: v for k, v in data.items() if k in ["id"]}
+    
+    # Map fields to database payload
+    db_fields = ["id", "email", "full_name", "company", "role", "notifications"]
+    db_data = {k: v for k, v in data.items() if k in db_fields}
     db_data["id"] = user_id
     
-    # Try updating the base user profile (id)
-    updated = await db.upsert_user_profile(db_data)
+    # Try updating the base user profile in database
+    updated = {}
+    try:
+        updated = await db.upsert_user_profile(db_data)
+    except Exception:
+        pass
     
-    # Save the expanded profile fields (name, company, role, notifications) to our local store
-    expanded_data = {k: v for k, v in data.items() if k not in ["id"]}
-    saved_local = save_local_settings(user_id, expanded_data)
+    # Also save to local settings store for fallback
+    saved_local = save_local_settings(user_id, data)
     
-    updated.update(saved_local)
-    return updated
+    merged = {**saved_local, **updated}
+    return merged
+

@@ -98,6 +98,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     searches_limit INTEGER DEFAULT 3,
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
+    company TEXT,
+    role TEXT,
+    notifications JSONB DEFAULT '{}'::jsonb,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -106,8 +109,9 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 CREATE TABLE IF NOT EXISTS activity_feed (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL DEFAULT auth.uid(),
-    action TEXT NOT NULL,
-    details TEXT,
+    action TEXT NOT NULL,          -- short title e.g. "Influencer Fetched"
+    details TEXT DEFAULT '',       -- descriptive text e.g. "Added @menofculture from YouTube with 397K followers"
+    icon TEXT DEFAULT 'bell',      -- icon hint for frontend: 'user-plus', 'alert', 'report', 'trash', 'refresh', 'bell'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -126,15 +130,6 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-
--- 8. Activity Feed / Notifications
-CREATE TABLE IF NOT EXISTS activity_feed (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    action TEXT NOT NULL,          -- short title e.g. "Influencer Fetched"
-    details TEXT DEFAULT '',       -- descriptive text e.g. "Added @menofculture from YouTube with 397K followers"
-    icon TEXT DEFAULT 'bell',      -- icon hint for frontend: 'user-plus', 'alert', 'report', 'trash', 'refresh', 'bell'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
 
 
 -- RLS (Row Level Security) - Basic setup (Enable and add policies as needed)

@@ -20,8 +20,8 @@ async def generate_brief(req: BriefRequest, x_user_id: str | None = Header(None)
         raise HTTPException(status_code=401, detail="X-User-Id required")
     
     profile = await db.get_influencer(req.influencer_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Influencer not found")
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     
     brief_content = await ai.generate_brief(
         influencer=profile,
