@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
 import asyncio
+import re
 
 load_dotenv()
 
