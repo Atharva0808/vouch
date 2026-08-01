@@ -32,12 +32,15 @@ export default function BriefPage() {
         }
     };
 
+    const [reportId, setReportId] = useState("");
+
     const handleGenerate = async () => {
         if (!selectedId || !brandName || !objective) return;
         setGenerating(true);
         setError("");
         setBrief("");
         setMatchData(null);
+        setReportId("");
 
         try {
             const result = await generateBrief({
@@ -48,6 +51,9 @@ export default function BriefPage() {
                 budget: budget ? parseFloat(budget) : undefined,
             });
             setBrief(result.brief);
+            if (result.report_id) {
+                setReportId(result.report_id);
+            }
             if (result.match_score !== undefined) {
                 setMatchData({
                     score: result.match_score,
@@ -59,6 +65,16 @@ export default function BriefPage() {
             setError(err.message || "Failed to generate brief");
         }
         setGenerating(false);
+    };
+
+    const handleDownloadPdf = async () => {
+        if (!reportId) return;
+        try {
+            const { downloadReportPdf } = await import("@/lib/api-client");
+            await downloadReportPdf(reportId);
+        } catch (err: any) {
+            setError("Failed to download PDF report");
+        }
     };
 
     const handleCopy = () => {
@@ -251,16 +267,28 @@ export default function BriefPage() {
                                 <FileText size={18} className="text-[var(--color-neo-lavender)]" />
                                 <h3 className="text-lg font-bold text-[var(--color-neo-black)] uppercase tracking-tight">Generated Brief</h3>
                             </div>
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={handleCopy}
-                                className={`neo-btn px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 ${copied ? "bg-[var(--color-neo-green)]" : "bg-[var(--color-neo-black)] text-[var(--color-neo-white)]"
-                                    }`}
-                            >
-                                {copied ? <Check size={14} /> : <Copy size={14} />}
-                                {copied ? "Copied!" : "Copy"}
-                            </motion.button>
+                            <div className="flex items-center gap-2">
+                                {reportId && (
+                                    <motion.button
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={handleDownloadPdf}
+                                        className="neo-btn bg-[var(--color-neo-yellow)] text-[var(--color-neo-black)] px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1"
+                                    >
+                                        <FileText size={14} /> Download PDF
+                                    </motion.button>
+                                )}
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={handleCopy}
+                                    className={`neo-btn px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1 ${copied ? "bg-[var(--color-neo-green)]" : "bg-[var(--color-neo-black)] text-[var(--color-neo-white)]"
+                                        }`}
+                                >
+                                    {copied ? <Check size={14} /> : <Copy size={14} />}
+                                    {copied ? "Copied!" : "Copy"}
+                                </motion.button>
+                            </div>
                         </div>
                         <div className="prose prose-sm max-w-none text-[var(--color-neo-black)]/90 bg-[var(--color-neo-black)]/3 p-4 rounded-xl leading-relaxed">
                             <ReactMarkdown

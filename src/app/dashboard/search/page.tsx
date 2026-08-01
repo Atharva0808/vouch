@@ -71,11 +71,11 @@ function SearchContent() {
     const handleFetchNew = async () => {
         if (!fetchHandle.trim()) return;
         setFetchingNew(true);
-        setFetchStatus("🌐 Pulling profile...");
+        setFetchStatus("Pulling profile...");
         setError("");
 
-        const timer1 = setTimeout(() => setFetchStatus("🧠 AI analysis..."), 2500);
-        const timer2 = setTimeout(() => setFetchStatus("⚡ Indexing..."), 5000);
+        const timer1 = setTimeout(() => setFetchStatus("AI analysis..."), 2500);
+        const timer2 = setTimeout(() => setFetchStatus("Indexing..."), 5000);
 
         try {
             const data = await fetchInfluencer(fetchHandle, fetchPlatform);
