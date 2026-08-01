@@ -60,7 +60,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                 await db.upsert_user_profile({
                     "id": user_prof["id"],
                     "tier": "free",
-                    "searches_limit": 3,
+                    "searches_limit": 10,
                 })
     
     return {"status": "ok"}
@@ -75,7 +75,7 @@ async def get_plans():
                 "name": "Free",
                 "price": 0,
                 "features": [
-                    "3 influencer lookups/month",
+                    "10 influencer lookups/month",
                     "Basic engagement metrics",
                     "1 AI brief per month",
                     "Community support",

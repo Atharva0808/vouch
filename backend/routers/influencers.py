@@ -486,9 +486,14 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
     roi_a, roi_b = profile_a.get("predicted_roi", 0), profile_b.get("predicted_roi", 0)
     bot_a, bot_b = profile_a.get("bot_percentage", 0), profile_b.get("bot_percentage", 0)
 
+    # Platform benchmark multipliers for fair cross-platform comparison
+    benchmarks = {"youtube": 3.0, "instagram": 2.2, "tiktok": 5.0, "facebook": 1.5}
+    norm_er_a = er_a / benchmarks.get(profile_a.get("platform", "").lower(), 2.5)
+    norm_er_b = er_b / benchmarks.get(profile_b.get("platform", "").lower(), 2.5)
+
     metrics = [
         {"label": "Followers", "value_a": fmt(f_a), "value_b": fmt(f_b), "winner": "a" if f_a > f_b else ("b" if f_b > f_a else None)},
-        {"label": "Engagement Rate", "value_a": f"{er_a}%", "value_b": f"{er_b}%", "winner": "a" if er_a > er_b else ("b" if er_b > er_a else None)},
+        {"label": "Engagement Rate", "value_a": f"{er_a}%", "value_b": f"{er_b}%", "winner": "a" if norm_er_a > norm_er_b else ("b" if norm_er_b > norm_er_a else None)},
         {"label": "Avg Likes", "value_a": fmt(l_a), "value_b": fmt(l_b), "winner": "a" if l_a > l_b else ("b" if l_b > l_a else None)},
         {"label": "Risk Level", "value_a": profile_a.get("risk_level", "unknown"), "value_b": profile_b.get("risk_level", "unknown"), "winner": "a" if profile_a.get("risk_level") == "low" and profile_b.get("risk_level") != "low" else ("b" if profile_b.get("risk_level") == "low" and profile_a.get("risk_level") != "low" else None)},
         {"label": "Predicted ROI", "value_a": f"{roi_a}x", "value_b": f"{roi_b}x", "winner": "a" if roi_a > roi_b else ("b" if roi_b > roi_a else None)},

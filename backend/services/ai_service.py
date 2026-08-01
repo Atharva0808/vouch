@@ -283,17 +283,25 @@ Return ONLY valid JSON, no extra text."""
         return ["General"]
 
 
-# ======== Match Score ========
-
+async def calculate_match_score(influencer: dict, brand_info: dict = None) -> dict:
+    """Calculate brand-influencer match score with fallback algorithmic engine."""
+    ai = get_groq()
     er = influencer.get("engagement_rate", 0)
     followers = influencer.get("followers", 0)
     verified = influencer.get("verified", False)
+    creator_niches = influencer.get("niche", [])
+    if isinstance(creator_niches, str): creator_niches = [creator_niches]
+    brand_niche = brand_info.get("brand_niche", "") if isinstance(brand_info, dict) else ""
     
-    base_score = 75.0
+    base_score = 70.0
     if er > 3.0: base_score += 10.0
     elif er > 1.5: base_score += 5.0
     if verified: base_score += 5.0
     if followers > 100000: base_score += 4.0
+    
+    if brand_niche and creator_niches:
+        if any(cn.lower() in brand_niche.lower() or brand_niche.lower() in cn.lower() for cn in creator_niches):
+            base_score += 10.0
     
     calc_score = round(min(base_score, 95.0), 1)
     rec = "hire" if calc_score >= 85 else "consider"

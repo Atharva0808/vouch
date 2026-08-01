@@ -581,11 +581,13 @@ def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:
 
     for i in range(min(days, 7)):
         date = (datetime.now() - timedelta(days=min(days, 7) - i)).strftime("%Y-%m-%d")
+        # Inject minor organic daily variance (±0.3%) for realistic chart curves
+        variance = 1.0 + (random.uniform(-0.003, 0.003) if i < min(days, 7) - 1 else 0.0)
         timeline.append({
             "date": date,
-            "followers": base_followers,
-            "likes": base_likes,
-            "comments": base_comments,
+            "followers": int(base_followers * variance),
+            "likes": int(base_likes * variance),
+            "comments": int(base_comments * variance),
             "shares": int(base_likes * 0.05) if base_likes else 0,
             "organic": True,
         })
