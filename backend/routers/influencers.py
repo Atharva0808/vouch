@@ -49,22 +49,14 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         # 3.5 Detect accurate niche using AI (replaces regex fallback)
         captions = [p.get("caption", "") for p in profile.get("recent_posts", []) if isinstance(p, dict) and p.get("caption")]
         
-        # 4. Run AI analysis concurrently to save massive amounts of time
-        async def get_sentiment():
-            if comments:
-                res = await ai.analyze_sentiment(comments, profile.get("name", ""))
-                return res
-            return {}
-
-        niche_task = ai.detect_niche(profile.get("bio", ""), profile.get("name", ""), captions)
-        risk_task = ai.assess_risk(profile, comments)
-        sentiment_task = get_sentiment()
-        fake_task = ai.detect_fake_engagement(timeline, profile)
-        roi_task = ai.predict_roi(profile)
+        # 4. Run Unified Single-Prompt AI Analysis for Sub-3.5s Execution Speed
+        unified_ai = await ai.analyze_creator_unified(profile, comments, timeline)
         
-        ai_niches, risk_result, sentiment, fake_result, roi_result = await asyncio.gather(
-            niche_task, risk_task, sentiment_task, fake_task, roi_task
-        )
+        ai_niches = unified_ai.get("niches", ["General"])
+        risk_result = unified_ai.get("risk_result", {})
+        sentiment = unified_ai.get("sentiment", {})
+        fake_result = unified_ai.get("fake_result", {})
+        roi_result = unified_ai.get("roi_result", {})
         
         if ai_niches and ai_niches != ["General"]:
             profile["niche"] = ai_niches

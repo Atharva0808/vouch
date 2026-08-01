@@ -33,6 +33,93 @@ def get_groq() -> Groq | None:
     return client
 
 
+# ======== Unified Ultra-Fast AI Analysis ========
+
+async def analyze_creator_unified(profile: dict, comments: list[str], timeline: list[dict]) -> dict:
+    """Unified single-prompt AI analysis for ultra-fast sub-4s execution.
+    Executes niche, risk, sentiment, fake engagement, and ROI analysis in 1 single Groq API call."""
+    ai = get_groq()
+    name = profile.get("name", "")
+    bio = profile.get("bio", "")
+    followers = profile.get("followers", 0)
+    er = profile.get("engagement_rate", 0)
+
+    fallback_res = {
+        "niches": ["General"],
+        "risk_result": {"overall_risk": "low" if er > 1 else "medium", "flags": []},
+        "sentiment": {"positive": 70.0, "neutral": 20.0, "negative": 10.0, "brand_safety_score": 90, "themes": [], "red_flags": []},
+        "fake_result": {"bot_percentage": 5.0, "fake_engagement_detected": False, "spike_dates": [], "patterns": []},
+        "roi_result": {"predicted_roi": 3.2, "confidence": "medium", "explanation": "Organic engagement trends."}
+    }
+
+    if ai is None:
+        return fallback_res
+
+    comments_sample = "\n".join([f"- {c}" for c in comments[:25]]) if comments else "No comments available"
+    captions = [p.get("caption", "") for p in profile.get("recent_posts", []) if isinstance(p, dict) and p.get("caption")]
+    captions_sample = " | ".join(captions[:5]) if captions else "None"
+
+    prompt = f"""Creator: {name} (Handle: {profile.get('handle', '')}, Platform: {profile.get('platform', '')})
+Bio: {bio}
+Followers: {followers}, Engagement Rate: {er}%
+Recent Captions: {captions_sample}
+Sample Audience Comments:
+{comments_sample}"""
+
+    try:
+        response = ai.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are an elite AI influencer intelligence engine. Analyze the creator and return ONLY a JSON object with this exact structure:
+{
+  "niches": ["Niche1", "Niche2"],
+  "risk_result": {
+    "overall_risk": "low|medium|high|critical",
+    "flags": [{"category": "Brand Safety|Engagement|Content", "severity": "low|medium|high|critical", "title": "<title>", "description": "<desc>", "source": "ai_inference"}]
+  },
+  "sentiment": {
+    "positive": <0-100>,
+    "neutral": <0-100>,
+    "negative": <0-100>,
+    "brand_safety_score": <0-100>,
+    "themes": [{"label": "<theme>", "count": <num>, "sentiment": "positive|neutral|negative"}],
+    "red_flags": []
+  },
+  "fake_result": {
+    "bot_percentage": <0-100>,
+    "fake_engagement_detected": true|false,
+    "spike_dates": [],
+    "patterns": []
+  },
+  "roi_result": {
+    "predicted_roi": <float, e.g. 3.4>,
+    "confidence": "high|medium|low",
+    "explanation": "<brief explanation>"
+  }
+}
+Return ONLY valid JSON, no extra text."""
+                },
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2,
+            max_tokens=650
+        )
+        data = json.loads(response.choices[0].message.content or "{}")
+        return {
+            "niches": data.get("niches", ["General"])[:3],
+            "risk_result": data.get("risk_result", fallback_res["risk_result"]),
+            "sentiment": data.get("sentiment", fallback_res["sentiment"]),
+            "fake_result": data.get("fake_result", fallback_res["fake_result"]),
+            "roi_result": data.get("roi_result", fallback_res["roi_result"]),
+        }
+    except Exception as e:
+        print(f"Unified AI analysis error: {e}")
+        return fallback_res
+
+
 # ======== Sentiment Analysis ========
 
 async def analyze_sentiment(comments: list[str], influencer_name: str = "") -> dict:

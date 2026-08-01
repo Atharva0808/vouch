@@ -38,7 +38,7 @@ async def fetch_instagram_profile(handle: str) -> dict:
         "Content-Type": "application/json"
     }
     
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
         
         # 1 & 2. Fetch Profile and Posts concurrently
@@ -172,7 +172,7 @@ async def fetch_instagram_comments(handle: str, profile: dict = None) -> list[st
     }
     
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
             resp = await client.post(
                 f"https://{INSTAGRAM_HOST}/api/instagram/posts",
@@ -213,7 +213,7 @@ async def fetch_youtube_channel(handle: str) -> dict:
     """Fetch real YouTube channel data via youtube138 (Provider: Glavier)"""
     headers = {**HEADERS, "x-rapidapi-host": YOUTUBE_HOST}
     
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         clean_handle = handle.replace("@", "").strip()
         
         channel_id = None
