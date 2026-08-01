@@ -22,22 +22,11 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
     if not x_user_id:
         raise HTTPException(status_code=401, detail="X-User-Id header required")
     
-    user_prof = await db.get_user_profile(x_user_id)
-    if user_prof:
-        tier = user_prof.get("tier", "free")
-        used = user_prof.get("searches_used", 0)
-        limit = user_prof.get("searches_limit", 3)
-        if tier == "free" and used >= limit:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Free search quota limit reached ({used}/{limit}). Please upgrade your plan to unlock unlimited searches."
-            )
-            
     try:
         # Clean handle: strip spaces, @, lowercase
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
         
-        # Check 24-hour database cache for sub-100ms instant response
+        # 1. Check 24-hour database cache for sub-100ms instant response (zero quota cost)
         cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform)
         if cached_profile and cached_profile.get("updated_at"):
             try:
@@ -55,6 +44,18 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
                     }
             except Exception:
                 pass
+
+        # 2. Check search quota for NEW profile fetches (default 10 free audits)
+        user_prof = await db.get_user_profile(x_user_id)
+        if user_prof:
+            tier = user_prof.get("tier", "free")
+            used = user_prof.get("searches_used", 0)
+            limit = user_prof.get("searches_limit", 10)
+            if tier == "free" and used >= limit:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Free search quota limit reached ({used}/{limit}). Please upgrade your plan to unlock unlimited searches."
+                )
         
         # 1. Fetch real profile from social media
         profile = await social.fetch_social_profile(clean_handle, req.platform)
