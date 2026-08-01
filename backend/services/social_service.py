@@ -215,30 +215,32 @@ async def fetch_youtube_channel(handle: str) -> dict:
     async with httpx.AsyncClient(timeout=30) as client:
         clean_handle = handle.replace("@", "").strip()
         
-        # Step 1: Search for the channel
-        search_resp = await client.get(
-            f"https://{YOUTUBE_HOST}/search/",
-            params={"q": clean_handle, "hl": "en", "gl": "US"},
-            headers=headers,
-        )
-        
-        if search_resp.status_code != 200:
-            raise Exception(f"YouTube Search error: {search_resp.status_code}")
-        
-        search_data = search_resp.json()
-        # youtube138 returns results in "contents" array, not "data"
-        items = search_data.get("contents", search_data.get("data", []))
-        
         channel_id = None
         channel_search_data = {}
         
-        # Find first channel-type result
-        for item in items:
-            if item.get("type") == "channel":
-                chan = item.get("channel", item)
-                channel_id = chan.get("channelId")
-                channel_search_data = chan
-                break
+        # If handle is already a direct 24-character YouTube Channel ID (starts with UC)
+        if clean_handle.startswith("UC") and len(clean_handle) == 24:
+            channel_id = clean_handle
+        else:
+            # Step 1: Search for the channel
+            search_resp = await client.get(
+                f"https://{YOUTUBE_HOST}/search/",
+                params={"q": clean_handle, "hl": "en", "gl": "US"},
+                headers=headers,
+            )
+            
+            if search_resp.status_code == 200:
+                search_data = search_resp.json()
+                # youtube138 returns results in "contents" array, not "data"
+                items = search_data.get("contents", search_data.get("data", []))
+                
+                # Find first channel-type result
+                for item in items:
+                    if item.get("type") == "channel":
+                        chan = item.get("channel", item)
+                        channel_id = chan.get("channelId")
+                        channel_search_data = chan
+                        break
         
         # Fallback: extract channelId from a video result
         if not channel_id:
@@ -379,15 +381,15 @@ async def fetch_youtube_channel(handle: str) -> dict:
         # Calculate engagement rate from REAL data when available
         yt_eng = 0.0
         if subscriber_count > 0:
-            if avg_likes > 0:
+            if avg_likes > 0 or avg_comments > 0:
                 # Real engagement: (avg_likes + avg_comments) / subscribers * 100
                 yt_eng = round(((avg_likes + avg_comments) / subscriber_count) * 100, 2)
-                yt_eng = min(yt_eng, 100.0)
+                yt_eng = min(yt_eng, 25.0)
             elif video_count > 0:
-                # Fallback: view-based engagement
+                # Fallback: view-based engagement with 0.05 viewer interaction multiplier
                 avg_views = view_count / video_count
-                yt_eng = round((avg_views / subscriber_count) * 100, 2)
-                yt_eng = min(yt_eng, 100.0)
+                yt_eng = round(((avg_views * 0.05) / subscriber_count) * 100, 2)
+                yt_eng = max(0.5, min(yt_eng, 12.5))
         
         res = {
             "name": title,
@@ -411,18 +413,23 @@ async def fetch_youtube_channel(handle: str) -> dict:
 
 
 def _parse_yt_number(s: str) -> int:
-    """Parse YouTube formatted numbers like '12.3K', '1.5M', '523' into integers"""
-    s = s.strip().replace(",", "")
-    try:
-        if s.upper().endswith("K"):
-            return int(float(s[:-1]) * 1000)
-        elif s.upper().endswith("M"):
-            return int(float(s[:-1]) * 1_000_000)
-        elif s.upper().endswith("B"):
-            return int(float(s[:-1]) * 1_000_000_000)
-        return int(float(s))
-    except (ValueError, TypeError):
+    """Parse YouTube formatted numbers like '12.3K views', '1.5M subscribers', '523' into integers"""
+    if not s:
         return 0
+    clean_s = str(s).strip().replace(",", "")
+    match = re.search(r'([\d\.]+)\s*([KMBkmb]?)', clean_s)
+    if match:
+        try:
+            num_str, unit = match.groups()
+            num = float(num_str)
+            unit = unit.upper()
+            if unit == "K": return int(num * 1000)
+            if unit == "M": return int(num * 1_000_000)
+            if unit == "B": return int(num * 1_000_000_000)
+            return int(num)
+        except (ValueError, TypeError):
+            return 0
+    return 0
 
 
 # ======== Unified fetch ========
@@ -457,7 +464,6 @@ async def fetch_comments(handle: str, platform: str, profile: dict = None) -> li
 def _detect_niche_from_bio(bio: str, name: str = "", captions: list[str] = None) -> list[str]:
     """Comprehensive niche detection from bio, name, and captions.
     Uses word-boundary matching to avoid false positives (e.g. 'art' in 'partner')."""
-    import re
     all_text = f"{bio} {name} {' '.join(captions[:5]) if captions else ''}".lower()
     niches = []
     
@@ -497,7 +503,8 @@ def _detect_niche_from_bio(bio: str, name: str = "", captions: list[str] = None)
             return ["Entertainment"]
         return ["General"]
     
-    return niches[:3]
+    deduped = list(dict.fromkeys(niches))
+    return deduped[:3]
 
 
 def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:

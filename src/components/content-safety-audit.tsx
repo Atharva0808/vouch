@@ -62,46 +62,55 @@ export default function ContentSafetyAudit({ influencerId }: { influencerId: str
                         animate={{ height: "auto", opacity: 1 }}
                         className="p-6"
                     >
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                            {/* Score Card */}
-                            <div className={`p-4 rounded-2xl neo-border text-center ${audit.safe_for_brands ? 'bg-green-50' : 'bg-red-50'}`}>
-                                <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">SAFETY SCORE</p>
-                                <p className={`text-4xl font-black mt-1 ${audit.safe_for_brands ? 'text-green-600' : 'text-red-600'}`}>
-                                    {100 - audit.risk_score}/100
-                                </p>
-                                <div className="flex items-center justify-center gap-1 mt-2">
-                                    {audit.safe_for_brands ? (
-                                        <CheckCircle size={14} className="text-green-600" />
-                                    ) : (
-                                        <AlertTriangle size={14} className="text-red-600" />
-                                    )}
-                                    <span className="text-[10px] font-bold uppercase">{audit.safe_for_brands ? 'SAFE FOR COLLABS' : 'HIGH RISK DETECTED'}</span>
-                                </div>
-                            </div>
+                        {(() => {
+                            const isFailed = audit.risk_level === "unknown" || audit.summary?.toLowerCase().includes("failed");
+                            return (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                    {/* Score Card */}
+                                    <div className={`p-4 rounded-2xl neo-border text-center ${isFailed ? "bg-gray-100" : audit.safe_for_brands ? "bg-green-50" : "bg-red-50"}`}>
+                                        <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">SAFETY SCORE</p>
+                                        <p className={`text-4xl font-black mt-1 ${isFailed ? "text-gray-500" : audit.safe_for_brands ? "text-green-600" : "text-red-600"}`}>
+                                            {isFailed ? "N/A" : `${100 - audit.risk_score}/100`}
+                                        </p>
+                                        <div className="flex items-center justify-center gap-1 mt-2">
+                                            {isFailed ? (
+                                                <AlertTriangle size={14} className="text-gray-500" />
+                                            ) : audit.safe_for_brands ? (
+                                                <CheckCircle size={14} className="text-green-600" />
+                                            ) : (
+                                                <AlertTriangle size={14} className="text-red-600" />
+                                            )}
+                                            <span className="text-[10px] font-bold uppercase">
+                                                {isFailed ? "AUDIT FAILED" : audit.safe_for_brands ? "SAFE FOR COLLABS" : "HIGH RISK DETECTED"}
+                                            </span>
+                                        </div>
+                                    </div>
 
-                            {/* Risk Level */}
-                            <div className="p-4 rounded-2xl neo-border text-center bg-[var(--color-neo-cream)]">
-                                <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">RISK LEVEL</p>
-                                <p className="text-2xl font-black mt-1 uppercase text-[var(--color-neo-black)]">
-                                    {audit.risk_level}
-                                </p>
-                                <div className="flex items-center justify-center gap-1 mt-3">
-                                    <div className="h-2 w-full max-w-[100px] bg-black/10 rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full transition-all duration-1000 ${audit.risk_level === 'high' ? 'bg-red-500 w-full' : audit.risk_level === 'medium' ? 'bg-yellow-500 w-1/2' : 'bg-green-500 w-1/4'}`}
-                                        />
+                                    {/* Risk Level */}
+                                    <div className="p-4 rounded-2xl neo-border text-center bg-[var(--color-neo-cream)]">
+                                        <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">RISK LEVEL</p>
+                                        <p className="text-2xl font-black mt-1 uppercase text-[var(--color-neo-black)]">
+                                            {audit.risk_level}
+                                        </p>
+                                        <div className="flex items-center justify-center gap-1 mt-3">
+                                            <div className="h-2 w-full max-w-[100px] bg-black/10 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-1000 ${audit.risk_level === 'high' ? 'bg-red-500 w-full' : audit.risk_level === 'medium' ? 'bg-yellow-500 w-1/2' : 'bg-green-500 w-1/4'}`}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Summary */}
+                                    <div className="p-4 rounded-2xl neo-border bg-[var(--color-neo-black)]/5 flex flex-col justify-center">
+                                        <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-1">AUDIT SUMMARY</p>
+                                        <p className="text-xs italic text-[var(--color-neo-black)]/70">
+                                            "{audit.summary}"
+                                        </p>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Summary */}
-                            <div className="p-4 rounded-2xl neo-border bg-[var(--color-neo-black)]/5 flex flex-col justify-center">
-                                <p className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-1">AUDIT SUMMARY</p>
-                                <p className="text-xs italic text-[var(--color-neo-black)]/70">
-                                    "{audit.summary}"
-                                </p>
-                            </div>
-                        </div>
+                            );
+                        })()}
 
                         {/* Flags Toggle */}
                         <div className="neo-border rounded-xl">

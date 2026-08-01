@@ -87,44 +87,46 @@ function fallbackAudienceBreakdown(inf: InfluencerProfile) {
     }
 }
 
+function stringToSeed(str: string): number {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash << 5) - hash + str.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash);
+}
+
+function pseudoRandom(seed: number, offset: number = 0): number {
+    const x = Math.sin(seed + offset) * 10000;
+    return x - Math.floor(x);
+}
+
 function fallbackCampaignPrediction(inf: InfluencerProfile) {
-    const engRate = inf.engagement_rate / 100;
-    const followers = inf.followers;
+    const followers = inf.followers || 0;
+    const engRate = (inf.engagement_rate || 0) / 100;
+    const seed = stringToSeed(inf.id || inf.handle || "default");
 
     const estimatedReach = Math.round(followers * 0.35);
     const estimatedImpressions = Math.round(followers * 1.8);
     const estimatedClicks = Math.round(estimatedReach * engRate * 0.45);
     const estimatedConversions = Math.round(estimatedClicks * 0.028);
 
-    // Realistic Indian market rate estimates for Influencers
-    // Realistic Indian market rate estimates — updated for Mega-Stars/Celebrities
-    let costPerPost = 0;
-    if (followers >= 50000000) { // Global Icon (50M+)
-        costPerPost = 100000000 + (Math.random() * 60000000); // ₹10Cr - ₹16Cr base
-    } else if (followers >= 10000000) { // Mega-Star (10M - 50M)
-        costPerPost = 20000000 + (Math.random() * 30000000); // ₹2Cr - ₹5Cr base
-    } else if (followers >= 1000000) { // Mega-Influencer (1M - 10M)
-        costPerPost = 400000 + (Math.random() * 600000); // ₹4L - ₹10L
-    } else if (followers >= 500000) {
-        costPerPost = 80000 + (Math.random() * 70000); // ₹80k - ₹1.5L
-    } else if (followers >= 100000) {
-        costPerPost = 25000 + (Math.random() * 25000); // ₹25k - ₹50k
-    } else if (followers >= 50000) {
-        costPerPost = 10000 + (Math.random() * 10000);
-    } else if (followers >= 10000) {
-        costPerPost = 4000 + (Math.random() * 4000);
-    } else {
-        costPerPost = 1000 + (Math.random() * 1500);
-    }
+    // Realistic CPM tier benchmark synchronized with estimate_market_rates
+    const baseRate = inf.platform === "instagram" ? 150.0 : 250.0;
+    let rateFactor = baseRate;
+    if (followers >= 50000000) rateFactor = 500.0;
+    else if (followers >= 10000000) rateFactor = 400.0;
+    else if (followers >= 1000000) rateFactor = 300.0;
 
-    const safeCost = Math.round(costPerPost);
+    const fairPrice = (followers / 1000) * rateFactor * (1.0 + (engRate * 20));
+    const safeCost = Math.round(fairPrice > 0 ? fairPrice : 5000);
 
     // Estimate CPE (Cost Per Engagement)
     const totalEngagements = Math.round(followers * engRate);
     const cpe = totalEngagements > 0 ? Math.round((safeCost / totalEngagements) * 100) / 100 : 0;
 
-    // Set a realistic ROI based on match score
-    const targetRoi = 2.0 + (inf.match_score / 100) * 3.5 + Math.random(); // Range 2.0 - 6.5
+    // Set a realistic deterministic ROI based on match score
+    const targetRoi = 2.0 + (inf.match_score / 100) * 3.5 + pseudoRandom(seed, 2); // Deterministic range
     const finalRoi = inf.predicted_roi > 0 ? inf.predicted_roi : Math.round(targetRoi * 10) / 10;
 
     // calculate equivalent monetary return
@@ -145,10 +147,11 @@ function fallbackCampaignPrediction(inf: InfluencerProfile) {
 function fallbackWeeklyPerformance(inf: InfluencerProfile) {
     const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const weekendBoost = inf.platform === "youtube" ? 1.4 : 1.25;
+    const seed = stringToSeed(inf.id || inf.handle || "default");
 
     return days.map((day, i) => {
         const isWeekend = i >= 5;
-        const mult = isWeekend ? weekendBoost : 0.8 + Math.random() * 0.4;
+        const mult = isWeekend ? weekendBoost : 0.8 + pseudoRandom(seed, i + 10) * 0.4;
         return {
             day,
             predictedLikes: Math.round(inf.avg_likes * mult),
@@ -189,6 +192,7 @@ export default function AnalyticsPage() {
     useEffect(() => {
         const fetchLive = async () => {
             if (!selectedInfluencer) return;
+            setLiveData(null);
             setLoadingLive(true);
             try {
                 const results = await getLiveAnalytics(selectedInfluencer.id);
@@ -203,18 +207,18 @@ export default function AnalyticsPage() {
 
     const inf = selectedInfluencer;
 
-    // Accounts fetched before the bot algorithm update will show exactly 0%.
-    // No massive influencer has 100% real audience. Fallback simulation algorithm:
+    // Deterministic bot percent algorithm
     const safeBotPercent = useMemo(() => {
         if (!inf) return 0;
         if (inf.bot_percentage > 0) return inf.bot_percentage;
-        // fallback calculation based on new parameters if old db entry is missing it
         let fallback = 5;
         if (inf.followers > 1000000) fallback += 15;
         else if (inf.followers > 100000) fallback += 10;
         if (inf.engagement_rate < 1.0) fallback += 10;
         else if (inf.engagement_rate > 10.0) fallback += 15;
-        return Math.max(3, Math.min(65, fallback + Math.random() * 5));
+        const seed = stringToSeed(inf.id || inf.handle || "default");
+        const jitter = pseudoRandom(seed, 1) * 3;
+        return Math.max(3, Math.min(65, Math.round(fallback + jitter)));
     }, [inf]);
 
     // Use liveData if available, otherwise fallback to generated calculations

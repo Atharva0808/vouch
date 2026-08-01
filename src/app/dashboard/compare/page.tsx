@@ -31,7 +31,10 @@ export default function ComparePage() {
     };
 
     const handleCompare = async () => {
-        if (!idA || !idB) return;
+        if (!idA || !idB || idA === idB) {
+            setComparison(null);
+            return;
+        }
         setLoading(true);
         try {
             const result = await compareInfluencers(idA, idB);
@@ -93,6 +96,12 @@ export default function ComparePage() {
                 <div className="flex justify-center py-8">
                     <Loader className="animate-spin text-[var(--color-neo-pink)]" size={32} />
                 </div>
+            )}
+
+            {idA && idB && idA === idB && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="neo-card rounded-2xl p-6 bg-[var(--color-neo-yellow)]/20 border-2 border-[var(--color-neo-yellow)] text-center">
+                    <p className="font-bold text-[var(--color-neo-black)] text-sm">Please select two different influencers to generate a side-by-side comparison.</p>
+                </motion.div>
             )}
 
             {/* Comparison Results */}

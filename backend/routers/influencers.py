@@ -21,6 +21,18 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
     """Fetch REAL influencer data from social media and run full AI analysis"""
     if not x_user_id:
         raise HTTPException(status_code=401, detail="X-User-Id header required")
+    
+    user_prof = await db.get_user_profile(x_user_id)
+    if user_prof:
+        tier = user_prof.get("tier", "free")
+        used = user_prof.get("searches_used", 0)
+        limit = user_prof.get("searches_limit", 3)
+        if tier == "free" and used >= limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Free search quota limit reached ({used}/{limit}). Please upgrade your plan to unlock unlimited searches."
+            )
+            
     try:
         # Clean handle: strip spaces, @, lowercase
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
@@ -161,6 +173,9 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
                 icon="alert",
             )
         
+        # Increment search count for user profile quota
+        await db.increment_search_count(x_user_id)
+
         return {
             "profile": saved_profile,
             "engagement": timeline,
@@ -295,11 +310,13 @@ async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(N
 
 
 @router.get("/{influencer_id}")
-async def get_influencer(influencer_id: str):
+async def get_influencer(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get full influencer profile with all analysis data"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
     profile = await db.get_influencer(influencer_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Influencer not found")
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     
     engagement = await db.get_engagement_data(influencer_id)
     sentiment = await db.get_sentiment(influencer_id)
@@ -314,27 +331,37 @@ async def get_influencer(influencer_id: str):
 
 
 @router.get("/{influencer_id}/engagement")
-async def get_engagement(influencer_id: str):
+async def get_engagement(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get engagement timeline data"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
+    profile = await db.get_influencer(influencer_id)
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     data = await db.get_engagement_data(influencer_id)
     return {"data": data}
 
 
 @router.get("/{influencer_id}/sentiment")
-async def get_sentiment(influencer_id: str):
+async def get_sentiment(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get sentiment analysis"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
+    profile = await db.get_influencer(influencer_id)
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     data = await db.get_sentiment(influencer_id)
     return {"data": data}
 
 
-
-
 @router.get("/{influencer_id}/download")
-async def download_influencer_pdf(influencer_id: str):
+async def download_influencer_pdf(influencer_id: str, x_user_id: str | None = Header(None)):
     """Download an influencer profile summary as PDF"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
     profile = await db.get_influencer(influencer_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Influencer not found")
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     
     pdf_bytes = profile_to_pdf(profile)
     name = (profile.get("name") or "influencer").replace(" ", "_")[:50]
@@ -348,18 +375,25 @@ async def download_influencer_pdf(influencer_id: str):
 
 
 @router.get("/{influencer_id}/risks")
-async def get_risks(influencer_id: str):
+async def get_risks(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get risk flags"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
+    profile = await db.get_influencer(influencer_id)
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     data = await db.get_risk_flags(influencer_id)
     return {"data": data}
 
 
 @router.post("/{influencer_id}/reanalyze")
-async def reanalyze_influencer(influencer_id: str):
+async def reanalyze_influencer(influencer_id: str, x_user_id: str | None = Header(None)):
     """Re-run AI analysis on an existing influencer"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id required")
     profile = await db.get_influencer(influencer_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Influencer not found")
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     
     engagement = await db.get_engagement_data(influencer_id)
     
@@ -416,26 +450,37 @@ async def reanalyze_influencer(influencer_id: str):
 
 
 @router.post("/compare")
-async def compare_influencers(req: CompareRequest):
+async def compare_influencers(req: CompareRequest, x_user_id: str | None = Header(None)):
     """Compare two influencers side-by-side"""
+    if not x_user_id:
+        raise HTTPException(status_code=401, detail="X-User-Id header required")
+        
     profile_a = await db.get_influencer(req.influencer_a_id)
     profile_b = await db.get_influencer(req.influencer_b_id)
     
-    if not profile_a or not profile_b:
-        raise HTTPException(status_code=404, detail="One or both influencers not found")
+    if not profile_a or profile_a.get("user_id") != x_user_id or not profile_b or profile_b.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="One or both influencers not found or access denied")
     
     def fmt(n):
+        if n is None or not isinstance(n, (int, float)):
+            return "0"
         if n >= 10000000: return f"{n/10000000:.2f}Cr"
         if n >= 100000: return f"{n/100000:.2f}L"
-        return f"{n:,}"
+        return f"{int(n):,}"
     
+    f_a, f_b = profile_a.get("followers", 0), profile_b.get("followers", 0)
+    er_a, er_b = profile_a.get("engagement_rate", 0), profile_b.get("engagement_rate", 0)
+    l_a, l_b = profile_a.get("avg_likes", 0), profile_b.get("avg_likes", 0)
+    roi_a, roi_b = profile_a.get("predicted_roi", 0), profile_b.get("predicted_roi", 0)
+    bot_a, bot_b = profile_a.get("bot_percentage", 0), profile_b.get("bot_percentage", 0)
+
     metrics = [
-        {"label": "Followers", "value_a": fmt(profile_a.get("followers", 0)), "value_b": fmt(profile_b.get("followers", 0)), "winner": "a" if profile_a.get("followers", 0) > profile_b.get("followers", 0) else "b"},
-        {"label": "Engagement Rate", "value_a": f"{profile_a.get('engagement_rate', 0)}%", "value_b": f"{profile_b.get('engagement_rate', 0)}%", "winner": "a" if profile_a.get("engagement_rate", 0) > profile_b.get("engagement_rate", 0) else "b"},
-        {"label": "Avg Likes", "value_a": fmt(profile_a.get("avg_likes", 0)), "value_b": fmt(profile_b.get("avg_likes", 0)), "winner": "a" if profile_a.get("avg_likes", 0) > profile_b.get("avg_likes", 0) else "b"},
-        {"label": "Risk Level", "value_a": profile_a.get("risk_level", "unknown"), "value_b": profile_b.get("risk_level", "unknown"), "winner": "a" if profile_a.get("risk_level") == "low" and profile_b.get("risk_level") != "low" else "b" if profile_b.get("risk_level") == "low" else None},
-        {"label": "Predicted ROI", "value_a": f"{profile_a.get('predicted_roi', 0)}x", "value_b": f"{profile_b.get('predicted_roi', 0)}x", "winner": "a" if profile_a.get("predicted_roi", 0) > profile_b.get("predicted_roi", 0) else "b"},
-        {"label": "Bot %", "value_a": f"{profile_a.get('bot_percentage', 0)}%", "value_b": f"{profile_b.get('bot_percentage', 0)}%", "winner": "a" if profile_a.get("bot_percentage", 0) < profile_b.get("bot_percentage", 0) else "b"},
+        {"label": "Followers", "value_a": fmt(f_a), "value_b": fmt(f_b), "winner": "a" if f_a > f_b else ("b" if f_b > f_a else None)},
+        {"label": "Engagement Rate", "value_a": f"{er_a}%", "value_b": f"{er_b}%", "winner": "a" if er_a > er_b else ("b" if er_b > er_a else None)},
+        {"label": "Avg Likes", "value_a": fmt(l_a), "value_b": fmt(l_b), "winner": "a" if l_a > l_b else ("b" if l_b > l_a else None)},
+        {"label": "Risk Level", "value_a": profile_a.get("risk_level", "unknown"), "value_b": profile_b.get("risk_level", "unknown"), "winner": "a" if profile_a.get("risk_level") == "low" and profile_b.get("risk_level") != "low" else ("b" if profile_b.get("risk_level") == "low" and profile_a.get("risk_level") != "low" else None)},
+        {"label": "Predicted ROI", "value_a": f"{roi_a}x", "value_b": f"{roi_b}x", "winner": "a" if roi_a > roi_b else ("b" if roi_b > roi_a else None)},
+        {"label": "Bot %", "value_a": f"{bot_a}%", "value_b": f"{bot_b}%", "winner": "a" if bot_a < bot_b else ("b" if bot_b < bot_a else None)},
     ]
     
     a_wins = sum(1 for m in metrics if m.get("winner") == "a")

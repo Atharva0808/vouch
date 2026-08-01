@@ -86,7 +86,7 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
                         <div className="bg-gradient-to-br from-[var(--color-neo-white)] to-[var(--color-neo-cream)] neo-border rounded-2xl p-4 relative overflow-hidden">
                             <div className="relative z-10">
                                 <p className="text-3xl font-bold text-[var(--color-neo-black)]">
-                                    ₹{rates.suggested_price.toLocaleString('en-IN')}
+                                    ₹{(rates.suggested_price || 0).toLocaleString('en-IN')}
                                     <span className="text-sm font-normal text-[var(--color-neo-black)]/40 ml-2">/ post</span>
                                 </p>
                                 <div className="flex items-center gap-2 mt-2">
@@ -94,7 +94,7 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
                                         <div className="h-full bg-[var(--color-neo-cyan)] w-[70%]" />
                                     </div>
                                     <span className="text-[10px] font-bold text-[var(--color-neo-black)]/60">
-                                        RANGE: ₹{rates.range_low.toLocaleString('en-IN')} - ₹{rates.range_high.toLocaleString('en-IN')}
+                                        RANGE: ₹{(rates.range_low || 0).toLocaleString('en-IN')} - ₹{(rates.range_high || 0).toLocaleString('en-IN')}
                                     </span>
                                 </div>
                                 <div className="flex gap-4 mt-4 text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40">

@@ -1,6 +1,6 @@
 import json
 import os
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 from services import supabase_service as db
 from pydantic import BaseModel
 
@@ -43,17 +43,22 @@ def save_local_settings(user_id: str, settings: dict):
     return current_usr
 
 @router.get("/{user_id}")
-async def get_profile(user_id: str):
+async def get_profile(user_id: str, x_user_id: str | None = Header(None)):
+    if not x_user_id or x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     profile = await db.get_user_profile(user_id) or {}
     if not profile:
         profile = await db.upsert_user_profile({"id": user_id})
     local_settings = get_local_settings(user_id)
-    # Merge local settings into profile, preferring DB values when present
-    merged = {**local_settings, **profile}
+    # Filter out null DB values so local settings fallbacks are preserved
+    clean_profile = {k: v for k, v in profile.items() if v is not None}
+    merged = {**local_settings, **clean_profile}
     return merged
 
 @router.post("/{user_id}")
-async def update_profile(user_id: str, profile: UserProfileUpdate):
+async def update_profile(user_id: str, profile: UserProfileUpdate, x_user_id: str | None = Header(None)):
+    if not x_user_id or x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
     data = profile.dict(exclude_unset=True)
     
     # Map fields to database payload

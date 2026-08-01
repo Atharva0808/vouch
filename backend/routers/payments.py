@@ -43,18 +43,25 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         raise HTTPException(status_code=400, detail=str(e))
     
     if result.get("action") == "upgrade":
-        # Update user plan in database
+        # Update user tier in database
         await db.upsert_user_profile({
             "id": result["user_id"],
-            "plan": result["plan"],
+            "tier": result["plan"],  # mapped to DB column 'tier'
             "searches_limit": result["searches_limit"],
             "stripe_customer_id": result["customer_id"],
             "searches_used": 0,  # Reset on upgrade
         })
     elif result.get("action") == "downgrade":
-        # Find user by customer ID and downgrade
-        # (would need a lookup - simplified here)
-        pass
+        # Find user by customer ID and downgrade to free
+        customer_id = result.get("customer_id")
+        if customer_id:
+            user_prof = await db.get_user_by_stripe_customer_id(customer_id)
+            if user_prof:
+                await db.upsert_user_profile({
+                    "id": user_prof["id"],
+                    "tier": "free",
+                    "searches_limit": 3,
+                })
     
     return {"status": "ok"}
 

@@ -153,12 +153,12 @@ export default function InfluencerDetailPage() {
                             </h1>
                             <div className="flex items-center justify-center sm:justify-start gap-2 mt-2">
                                 <span className="neo-badge bg-[var(--color-neo-black)] text-[var(--color-neo-white)] px-3 py-1 rounded-lg text-xs font-bold">
-                                    {profile.platform === "instagram" ? "📷" : "📺"} {profile.handle}
+                                    {profile.platform === "instagram" ? "📷" : profile.platform === "tiktok" ? "🎵" : "📺"} {profile.handle}
                                 </span>
-                                {profile.posts === 0 && (
+                                {profile.posts === 0 && profile.followers < 10000 && profile.platform !== "youtube" && (
                                     <span className="neo-badge bg-[var(--color-neo-red)] text-white px-3 py-1 rounded-lg text-[10px] uppercase font-black">No Activity</span>
                                 )}
-                                {profile.posts > 0 && profile.engagement_rate === 0 && (
+                                {profile.posts > 0 && profile.engagement_rate === 0 && profile.platform === "instagram" && (
                                     <span className="neo-badge bg-[var(--color-neo-black)]/20 text-[var(--color-neo-black)] px-3 py-1 rounded-lg text-[10px] uppercase font-bold">Private</span>
                                 )}
                             </div>

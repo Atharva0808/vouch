@@ -80,7 +80,7 @@ export default function RiskPanel({ data }: RiskPanelProps) {
             {flags.length > 0 ? (
                 <div className="space-y-3">
                     {flags.map((flag, i) => {
-                        const config = severityConfig[flag.severity as keyof typeof severityConfig];
+                        const config = severityConfig[flag.severity?.toLowerCase() as keyof typeof severityConfig] || severityConfig.low;
                         const Icon = config.icon;
                         return (
                             <motion.div

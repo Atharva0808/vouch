@@ -50,9 +50,9 @@ export default function ReportsPage() {
         setGenerating(true);
         setError("");
         try {
-            await Promise.all(selectedTypes.map(type =>
-                generateReport(selectedInfluencerId, type)
-            ));
+            for (const type of selectedTypes) {
+                await generateReport(selectedInfluencerId, type);
+            }
             setShowModal(false);
             setSelectedTypes(["full_analysis"]);
             loadData(); // Refresh list

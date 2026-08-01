@@ -345,3 +345,22 @@ async def clear_all_influencers() -> int:
     return len(result.data) if result.data else 0
 
 
+async def get_user_by_stripe_customer_id(customer_id: str) -> dict | None:
+    """Find user profile by Stripe customer ID"""
+    if not customer_id:
+        return None
+    sb = get_supabase()
+    try:
+        result = (
+            sb.table("user_profiles")
+            .select("*")
+            .eq("stripe_customer_id", customer_id)
+            .maybe_single()
+            .execute()
+        )
+        return result.data if result else None
+    except Exception:
+        return None
+
+
+

@@ -39,36 +39,48 @@ export default function SentimentPanel({ data }: SentimentPanelProps) {
 
             {/* Sentiment Bar */}
             <div className="mb-6">
-                <div className="flex rounded-xl neo-border overflow-hidden h-10">
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${positive}%` }}
-                        transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
-                        className="bg-neo-green flex items-center justify-center"
-                    >
-                        <span className="text-xs font-bold text-neo-black">{positive}%</span>
-                    </motion.div>
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${neutral}%` }}
-                        transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
-                        className="bg-neo-yellow flex items-center justify-center border-x-2 border-neo-black"
-                    >
-                        <span className="text-xs font-bold text-neo-black">{neutral}%</span>
-                    </motion.div>
-                    <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${negative}%` }}
-                        transition={{ delay: 0.9, duration: 0.8, ease: "easeOut" }}
-                        className="bg-neo-red flex items-center justify-center"
-                    >
-                        <span className="text-xs font-bold text-neo-white">{negative}%</span>
-                    </motion.div>
-                </div>
+                {positive === 0 && neutral === 0 && negative === 0 ? (
+                    <div className="flex items-center justify-center h-10 rounded-xl neo-border bg-gray-100 text-xs font-bold text-gray-500 uppercase">
+                        No Comment Sentiment Data Available
+                    </div>
+                ) : (
+                    <div className="flex rounded-xl neo-border overflow-hidden h-10 bg-gray-100">
+                        {positive > 0 && (
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${positive}%` }}
+                                transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
+                                className="bg-neo-green flex items-center justify-center overflow-hidden"
+                            >
+                                {positive >= 10 && <span className="text-xs font-bold text-neo-black">{positive}%</span>}
+                            </motion.div>
+                        )}
+                        {neutral > 0 && (
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${neutral}%` }}
+                                transition={{ delay: 0.7, duration: 0.8, ease: "easeOut" }}
+                                className="bg-neo-yellow flex items-center justify-center border-x-2 border-neo-black overflow-hidden"
+                            >
+                                {neutral >= 10 && <span className="text-xs font-bold text-neo-black">{neutral}%</span>}
+                            </motion.div>
+                        )}
+                        {negative > 0 && (
+                            <motion.div
+                                initial={{ width: 0 }}
+                                animate={{ width: `${negative}%` }}
+                                transition={{ delay: 0.9, duration: 0.8, ease: "easeOut" }}
+                                className="bg-neo-red flex items-center justify-center overflow-hidden"
+                            >
+                                {negative >= 10 && <span className="text-xs font-bold text-neo-white">{negative}%</span>}
+                            </motion.div>
+                        )}
+                    </div>
+                )}
                 <div className="flex justify-between mt-2">
-                    <span className="text-[10px] font-bold text-green-600 uppercase">Positive</span>
-                    <span className="text-[10px] font-bold text-yellow-600 uppercase">Neutral</span>
-                    <span className="text-[10px] font-bold text-red-600 uppercase">Negative</span>
+                    <span className="text-[10px] font-bold text-green-600 uppercase">Positive ({positive}%)</span>
+                    <span className="text-[10px] font-bold text-yellow-600 uppercase">Neutral ({neutral}%)</span>
+                    <span className="text-[10px] font-bold text-red-600 uppercase">Negative ({negative}%)</span>
                 </div>
             </div>
 

@@ -56,6 +56,9 @@ async def generate_brief(req: BriefRequest, x_user_id: str | None = Header(None)
         "brief": brief_content,
         "campaign_objective": req.campaign_objective,
         "brand_name": req.brand_name,
+        "score": match_score,
+        "summary": match_reasoning or f"Campaign Brief created for {profile.get('name', 'Unknown')} x {req.brand_name}.",
+        "recommendation": match_recommendation.upper(),
         "match_score": match_score,
         "match_recommendation": match_recommendation,
         "match_reasoning": match_reasoning,
@@ -153,8 +156,8 @@ async def generate_report(influencer_id: str, report_type: str = "full_analysis"
         raise HTTPException(status_code=401, detail="X-User-Id required")
 
     profile = await db.get_influencer(influencer_id)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Influencer not found")
+    if not profile or profile.get("user_id") != x_user_id:
+        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
     
     report_data = await ai.generate_report(profile, report_type)
     

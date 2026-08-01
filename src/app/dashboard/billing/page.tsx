@@ -79,7 +79,20 @@ function BillingContent() {
     useEffect(() => {
         const success = searchParams.get("success");
         const canceled = searchParams.get("canceled");
-        if (success) setShowSuccess(true);
+        if (success) {
+            setShowSuccess(true);
+            import("@/lib/supabase-browser").then(({ createClient }) => {
+                const supabase = createClient();
+                supabase.auth.getUser().then((res: any) => {
+                    const user = res.data?.user;
+                    if (user) {
+                        import("@/lib/api-client").then(({ getUserProfile }) => {
+                            getUserProfile(user.id).catch(() => {});
+                        });
+                    }
+                });
+            });
+        }
         if (canceled) setShowCanceled(true);
         // Clear URL params so alerts don't persist on refresh
         if (success || canceled) {

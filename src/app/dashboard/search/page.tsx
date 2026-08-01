@@ -1,18 +1,30 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, Sparkles, Filter, ChevronDown, Loader, Plus, Instagram, Youtube } from "lucide-react";
 import { fetchInfluencer, searchInfluencers, deleteInfluencer, formatNumber, type InfluencerProfile } from "@/lib/api-client";
 import Link from "next/link";
 import AvatarImg from "@/components/avatar-img";
 
-const platformOptions = ["all", "instagram", "youtube", "facebook"];
+const platformOptions = ["all", "instagram", "youtube", "tiktok", "facebook"];
 const nicheOptions = ["all", "Fitness", "Fashion", "Beauty", "Food", "Travel", "Tech", "Gaming", "Lifestyle", "Education"];
 const riskOptions = ["all", "low", "medium", "high"];
 
 export default function SearchPage() {
-    const [query, setQuery] = useState("");
+    return (
+        <Suspense fallback={<div className="flex justify-center py-20"><Loader className="animate-spin text-[var(--color-neo-pink)]" size={32} /></div>}>
+            <SearchContent />
+        </Suspense>
+    );
+}
+
+function SearchContent() {
+    const searchParams = useSearchParams();
+    const initialQ = searchParams.get("q") || "";
+
+    const [query, setQuery] = useState(initialQ);
     const [platform, setPlatform] = useState("all");
     const [niche, setNiche] = useState("all");
     const [riskFilter, setRiskFilter] = useState("all");
@@ -23,6 +35,17 @@ export default function SearchPage() {
     const [error, setError] = useState("");
     const [fetchHandle, setFetchHandle] = useState("");
     const [fetchPlatform, setFetchPlatform] = useState("instagram");
+
+    useEffect(() => {
+        if (initialQ) {
+            setQuery(initialQ);
+            setLoading(true);
+            searchInfluencers({ query: initialQ })
+                .then((data) => setResults(data.results))
+                .catch((err) => setError(err.message))
+                .finally(() => setLoading(false));
+        }
+    }, [initialQ]);
 
     // Search existing database
     const handleSearch = async () => {
@@ -96,10 +119,11 @@ export default function SearchPage() {
                     <select
                         value={fetchPlatform}
                         onChange={(e) => setFetchPlatform(e.target.value)}
-                        className="neo-input py-3 px-4 rounded-xl text-sm w-full sm:w-40"
+                        className="neo-input py-3 px-4 rounded-xl text-sm w-full sm:w-40 capitalize"
                     >
                         <option value="instagram">Instagram</option>
                         <option value="youtube">YouTube</option>
+                        <option value="tiktok">TikTok</option>
                     </select>
                     <input
                         type="text"
@@ -248,12 +272,12 @@ export default function SearchPage() {
                                                 <span className="neo-badge bg-[var(--color-neo-black)]/5 px-2 py-0.5 rounded text-[10px] uppercase font-bold">
                                                     {inf.platform}
                                                 </span>
-                                                {inf.posts === 0 && (
+                                                {inf.posts === 0 && inf.followers < 10000 && inf.platform !== "youtube" && (
                                                     <span className="neo-badge bg-[var(--color-neo-red)]/10 text-[var(--color-neo-red)] px-2 py-0.5 rounded text-[10px] uppercase font-bold">
                                                         No Activity
                                                     </span>
                                                 )}
-                                                {inf.posts > 0 && inf.engagement_rate === 0 && (
+                                                {inf.posts > 0 && inf.engagement_rate === 0 && inf.platform === "instagram" && (
                                                     <span className="neo-badge bg-[var(--color-neo-black)]/10 text-[var(--color-neo-black)]/60 px-2 py-0.5 rounded text-[10px] uppercase font-bold">
                                                         Private
                                                     </span>

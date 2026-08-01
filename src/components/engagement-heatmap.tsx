@@ -95,7 +95,23 @@ export default function EngagementHeatmap({ data, title = "Engagement Timeline" 
                             axisLine={{ stroke: "#1a1a2e", strokeWidth: 2 }}
                         />
                         <YAxis
-                            tick={{ fontSize: 11, fill: "#1a1a2e", fontWeight: 600, opacity: 0.4 }}
+                            yAxisId="left"
+                            orientation="left"
+                            tick={{ fontSize: 11, fill: "#4ECDC4", fontWeight: 600 }}
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(val) =>
+                                val >= 1000000
+                                    ? `${(val / 1000000).toFixed(1)}M`
+                                    : val >= 1000
+                                        ? `${(val / 1000).toFixed(0)}K`
+                                        : val
+                            }
+                        />
+                        <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            tick={{ fontSize: 11, fill: "#FF6B9D", fontWeight: 600, opacity: 0.5 }}
                             tickLine={false}
                             axisLine={false}
                             tickFormatter={(val) =>
@@ -108,6 +124,7 @@ export default function EngagementHeatmap({ data, title = "Engagement Timeline" 
                         />
                         <Tooltip content={<CustomTooltip />} />
                         <Area
+                            yAxisId="right"
                             type="monotone"
                             dataKey="followers"
                             stroke="#FF6B9D"
@@ -115,6 +132,7 @@ export default function EngagementHeatmap({ data, title = "Engagement Timeline" 
                             fill="url(#fillFollowers)"
                         />
                         <Area
+                            yAxisId="left"
                             type="monotone"
                             dataKey="likes"
                             stroke="#4ECDC4"
@@ -124,6 +142,7 @@ export default function EngagementHeatmap({ data, title = "Engagement Timeline" 
                         {spikePoints.map((spike, i) => (
                             <ReferenceDot
                                 key={i}
+                                yAxisId="left"
                                 x={spike.date}
                                 y={spike.likes}
                                 r={8}

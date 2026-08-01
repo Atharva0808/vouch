@@ -27,7 +27,7 @@ export default function RisksPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "verified_metric" | "ai_inference">("all");
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "youtube">("all");
+    const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "youtube" | "tiktok">("all");
 
     useEffect(() => {
         loadRisks();
@@ -59,6 +59,7 @@ export default function RisksPage() {
     // Platform counts
     const instagramCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "instagram").length;
     const youtubeCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "youtube").length;
+    const tiktokCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "tiktok").length;
 
     const filteredRisks = risks.filter(risk => {
         const matchesSearch =
@@ -80,7 +81,9 @@ export default function RisksPage() {
         return matchesSearch && matchesSource && matchesPlatform;
     }).sort((a, b) => {
         const priority = { critical: 0, high: 1, medium: 2, low: 3 };
-        return (priority[a.severity as keyof typeof priority] || 0) - (priority[b.severity as keyof typeof priority] || 0);
+        const pA = priority[a.severity?.toLowerCase() as keyof typeof priority] ?? 99;
+        const pB = priority[b.severity?.toLowerCase() as keyof typeof priority] ?? 99;
+        return pA - pB;
     });
 
     const verifiedCount = risks.filter(r => r.source === "verified_metric").length;
@@ -228,11 +231,20 @@ export default function RisksPage() {
                 <button
                     onClick={() => setPlatformFilter("youtube")}
                     className={`neo-badge px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 transition-colors cursor-pointer ${platformFilter === "youtube"
-                        ? "bg-red-600 text-white"
+                        ? "bg-red-500 text-white"
                         : "bg-red-50 text-red-600 hover:bg-red-100"
                         }`}
                 >
                     <Youtube size={12} /> YouTube ({youtubeCount})
+                </button>
+                <button
+                    onClick={() => setPlatformFilter("tiktok")}
+                    className={`neo-badge px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 transition-colors cursor-pointer ${platformFilter === "tiktok"
+                        ? "bg-black text-white"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                        }`}
+                >
+                    TikTok ({tiktokCount})
                 </button>
             </div>
 

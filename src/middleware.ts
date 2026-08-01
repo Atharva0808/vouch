@@ -53,6 +53,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
+    // 3. If user IS signed in and trying to access /login or /signup -> Redirect to /dashboard
+    if (user && (path === "/login" || path === "/signup")) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+    }
+
     return supabaseResponse;
 }
 

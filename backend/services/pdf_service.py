@@ -17,6 +17,36 @@ def _clean(text: str) -> str:
     return html.escape(s.strip())
 
 
+def _add_multiline_text(story: list, text: str, body_style, heading_style=None):
+    """Parse multiline text/markdown into structured ReportLab paragraphs"""
+    if not text:
+        return
+    lines = str(text).splitlines()
+    for line in lines:
+        cleaned = line.strip()
+        if not cleaned:
+            story.append(Spacer(1, 0.06 * inch))
+            continue
+        if cleaned.startswith("#"):
+            header_text = cleaned.lstrip("#").strip()
+            style = heading_style if heading_style else body_style
+            story.append(Paragraph(html.escape(header_text), style))
+        elif cleaned.startswith("-") or cleaned.startswith("*"):
+            item_text = cleaned.lstrip("-*").strip()
+            story.append(Paragraph(f"• {html.escape(item_text)}", body_style))
+        else:
+            story.append(Paragraph(html.escape(cleaned), body_style))
+
+
+
+def _fmt_num(n):
+    if not isinstance(n, (int, float)):
+        return "0"
+    if n >= 10000000: return f"{n/10000000:.2f}Cr"
+    if n >= 100000: return f"{n/100000:.2f}L"
+    return f"{int(n):,}"
+
+
 def profile_to_pdf(profile: dict) -> bytes:
     """Generate a PDF summary for an influencer profile."""
     buffer = io.BytesIO()
@@ -67,10 +97,10 @@ def profile_to_pdf(profile: dict) -> bytes:
             Paragraph("ROI PREDICTION", metric_label_style)
         ],
         [
-            Paragraph(str(profile.get("followers", 0)), metric_value_style),
+            Paragraph(_fmt_num(profile.get("followers", 0)), metric_value_style),
             Paragraph(f"{profile.get('engagement_rate', 0)}%", metric_value_style),
-            Paragraph(str(profile.get("avg_likes", 0)), metric_value_style),
-            Paragraph(str(profile.get("avg_comments", 0)), metric_value_style),
+            Paragraph(_fmt_num(profile.get("avg_likes", 0)), metric_value_style),
+            Paragraph(_fmt_num(profile.get("avg_comments", 0)), metric_value_style),
             Paragraph(f"{profile.get('predicted_roi', 0)}x", metric_value_style)
         ]
     ]
@@ -165,7 +195,7 @@ def report_to_pdf(report: dict) -> bytes:
     brief = data.get("brief", "")
     if brief:
         story.append(Paragraph("<b>Marketing Brief</b>", heading_style))
-        story.append(Paragraph(_clean(brief), body_style))
+        _add_multiline_text(story, brief, body_style, heading_style)
 
     doc.build(story)
     return buffer.getvalue()
@@ -229,7 +259,7 @@ def reports_to_combined_pdf(reports: list[dict]) -> bytes:
         brief = data.get("brief", "")
         if brief:
             story.append(Paragraph("<b>Marketing Brief</b>", heading_style))
-            story.append(Paragraph(_clean(brief), body_style))
+            _add_multiline_text(story, brief, body_style, heading_style)
 
     doc.build(story)
     return buffer.getvalue()
