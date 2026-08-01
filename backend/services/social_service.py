@@ -414,11 +414,11 @@ async def fetch_youtube_channel(handle: str) -> dict:
 
 
 def _parse_yt_number(s: str) -> int:
-    """Parse YouTube formatted numbers like '12.3K views', '1.5M subscribers', '523' into integers"""
+    """Parse YouTube formatted numbers like '12.3K views', '1.5M subscribers', '523' into integers with anchor protection"""
     if not s:
         return 0
     clean_s = str(s).strip().replace(",", "")
-    match = re.search(r'([\d\.]+)\s*([KMBkmb]?)', clean_s)
+    match = re.search(r'^\s*([\d\.]+)\s*([KMBkmb]?)\s*(?:subscribers|subscriber|views|view|videos|video|likes|like)?', clean_s, re.IGNORECASE)
     if match:
         try:
             num_str, unit = match.groups()

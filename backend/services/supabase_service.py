@@ -89,7 +89,7 @@ async def search_influencers(
     if max_followers:
         q = q.lte("followers", max_followers)
     if min_engagement:
-        q = q.gte("engagement_rate", min_engagement)
+        q = q.or_(f"engagement_rate.gte.{min_engagement},engagement_rate.is.null")
     if risk_level:
         q = q.eq("risk_level", risk_level)
     

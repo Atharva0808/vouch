@@ -46,7 +46,11 @@ export default function ComparePage() {
     };
 
     useEffect(() => {
-        if (idA && idB) handleCompare();
+        if (idA && idB && idA !== idB) {
+            handleCompare();
+        } else if (idA && idB && idA === idB) {
+            setComparison(null);
+        }
     }, [idA, idB]);
 
     return (

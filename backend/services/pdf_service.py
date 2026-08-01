@@ -39,6 +39,17 @@ def _add_multiline_text(story: list, text: str, body_style, heading_style=None):
 
 
 
+def _fmt_currency(n, currency="INR"):
+    symbol_map = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£"}
+    sym = symbol_map.get(currency.upper(), "₹")
+    if not isinstance(n, (int, float)):
+        return f"{sym}0"
+    if currency.upper() == "INR":
+        if n >= 10000000: return f"{sym}{n/10000000:.2f}Cr"
+        if n >= 100000: return f"{sym}{n/100000:.2f}L"
+    return f"{sym}{int(n):,}"
+
+
 def _fmt_num(n):
     if not isinstance(n, (int, float)):
         return "0"
@@ -238,10 +249,12 @@ def reports_to_combined_pdf(reports: list[dict]) -> bytes:
             story.append(Spacer(1, 0.15 * inch))
         key_insights = data.get("key_insights", [])
         if key_insights:
-            story.append(Paragraph("<b>Key Insights</b>", heading_style))
-            for insight in key_insights[:10]:
-                story.append(Paragraph(f"• {_clean(str(insight))}", body_style))
-            story.append(Spacer(1, 0.15 * inch))
+            valid_insights = [str(k).strip() for k in key_insights if str(k).strip()]
+            if valid_insights:
+                story.append(Paragraph("<b>Key Insights</b>", heading_style))
+                for insight in valid_insights[:10]:
+                    story.append(Paragraph(f"• {_clean(insight)}", body_style))
+                story.append(Spacer(1, 0.15 * inch))
         score, rec = data.get("score"), data.get("recommendation", "")
         if score is not None or rec:
             story.append(Paragraph("<b>Assessment</b>", heading_style))

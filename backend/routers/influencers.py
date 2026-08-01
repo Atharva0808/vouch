@@ -491,10 +491,14 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
     norm_er_a = er_a / benchmarks.get(profile_a.get("platform", "").lower(), 2.5)
     norm_er_b = er_b / benchmarks.get(profile_b.get("platform", "").lower(), 2.5)
 
+    cpe_a = round((profile_a.get("suggested_price", 1000) / max(1, l_a)), 2) if l_a > 0 else 0
+    cpe_b = round((profile_b.get("suggested_price", 1000) / max(1, l_b)), 2) if l_b > 0 else 0
+
     metrics = [
         {"label": "Followers", "value_a": fmt(f_a), "value_b": fmt(f_b), "winner": "a" if f_a > f_b else ("b" if f_b > f_a else None)},
         {"label": "Engagement Rate", "value_a": f"{er_a}%", "value_b": f"{er_b}%", "winner": "a" if norm_er_a > norm_er_b else ("b" if norm_er_b > norm_er_a else None)},
         {"label": "Avg Likes", "value_a": fmt(l_a), "value_b": fmt(l_b), "winner": "a" if l_a > l_b else ("b" if l_b > l_a else None)},
+        {"label": "Cost Per Eng. (CPE)", "value_a": f"₹{cpe_a}", "value_b": f"₹{cpe_b}", "winner": "a" if cpe_a > 0 and (cpe_b == 0 or cpe_a < cpe_b) else ("b" if cpe_b > 0 and (cpe_a == 0 or cpe_b < cpe_a) else None)},
         {"label": "Risk Level", "value_a": profile_a.get("risk_level", "unknown"), "value_b": profile_b.get("risk_level", "unknown"), "winner": "a" if profile_a.get("risk_level") == "low" and profile_b.get("risk_level") != "low" else ("b" if profile_b.get("risk_level") == "low" and profile_a.get("risk_level") != "low" else None)},
         {"label": "Predicted ROI", "value_a": f"{roi_a}x", "value_b": f"{roi_b}x", "winner": "a" if roi_a > roi_b else ("b" if roi_b > roi_a else None)},
         {"label": "Bot %", "value_a": f"{bot_a}%", "value_b": f"{bot_b}%", "winner": "a" if bot_a < bot_b else ("b" if bot_b < bot_a else None)},

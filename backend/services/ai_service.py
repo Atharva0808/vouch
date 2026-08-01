@@ -138,6 +138,19 @@ async def analyze_sentiment(comments: list[str], influencer_name: str = "") -> d
 
     comments_text = "\n".join([f"- {c}" for c in comments[:100]])
 
+    if not comments:
+        return {
+            "positive": 0.0,
+            "negative": 0.0,
+            "neutral": 100.0,
+            "themes": [],
+            "raw_comments_analyzed": 0,
+            "red_flags": [],
+            "brand_safety_score": 75,
+            "has_comment_sample": False,
+            "status": "Unassessed (No Comments Available)"
+        }
+
     try:
         response = ai.chat.completions.create(
             model=MODEL,
@@ -303,8 +316,15 @@ async def calculate_match_score(influencer: dict, brand_info: dict = None) -> di
         if any(cn.lower() in brand_niche.lower() or brand_niche.lower() in cn.lower() for cn in creator_niches):
             base_score += 10.0
     
-    calc_score = round(min(base_score, 95.0), 1)
-    rec = "hire" if calc_score >= 85 else "consider"
+    risk = influencer.get("risk_level", "low").lower()
+    bot_pct = influencer.get("bot_percentage", 0)
+    
+    if risk == "high" or bot_pct > 25.0:
+        rec = "avoid"
+    elif risk == "medium" or bot_pct > 15.0:
+        rec = "consider"
+    else:
+        rec = "hire" if calc_score >= 85 else "consider"
     
     fallback = {
         "match_score": calc_score,
@@ -840,23 +860,37 @@ async def estimate_market_rates(influencer: dict) -> dict:
     elif any(n.lower() in ["entertainment", "comedy", "lifestyle", "music"] for n in niches):
         niche_multiplier = 0.8
     
-    # 2. Engagement multiplier (higher ER = higher value)
-    er_multiplier = 1.0 + (er / 5.0)  # Bonus: +20% for every 5% ER
+    # 2. Engagement multiplier (0% ER penalizes follower base down to 0)
+    er_multiplier = min(1.0, er / 0.5) * (1.0 + (er / 5.0))
     
-    # Core calculation with minimum ₹1,000 base rate floor
-    fair_price = max((followers / 1000) * base_rate * er_multiplier * niche_multiplier, 1000.0)
+    # Core calculation with minimum ₹1,000 base rate floor if ER > 0
+    fair_price = (followers / 1000) * base_rate * er_multiplier * niche_multiplier
+    if er > 0:
+        fair_price = max(fair_price, 1000.0)
+    else:
+        fair_price = 0.0 # 0.0% engagement rate = 0 commercial value
     
     # Add variance for range
     low_end = fair_price * 0.85
     high_end = fair_price * 1.25
     
+    # Deliverable Format Pricing Tiers (Defect 16)
+    story_rate = round(fair_price * 0.3, 0)
+    post_rate = round(fair_price, 0)
+    video_rate = round(fair_price * 2.5, 0)
+    
     return {
         "suggested_price": round(fair_price, 0),
         "range_low": round(low_end, 0),
         "range_high": round(high_end, 0),
+        "deliverables": {
+            "story": story_rate,
+            "post_reel": post_rate,
+            "dedicated_video": video_rate
+        },
         "cpm": round((fair_price / followers) * 1000, 2) if followers > 0 else 0,
         "platform_benchmark": platform,
-        "confidence": "high" if er > 0 else "medium",
+        "confidence": "high" if er > 0 else "low",
         "currency": "INR",
     }
 
