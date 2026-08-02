@@ -86,6 +86,9 @@ async def search_influencers(
         q = q.contains("niche", [niche])
     if min_followers:
         q = q.gte("followers", min_followers)
+    elif not query:
+        # Refinement 8: Filter out placeholder test profiles (<100 followers) from default discovery
+        q = q.gte("followers", 100)
     if max_followers:
         q = q.lte("followers", max_followers)
     if min_engagement:

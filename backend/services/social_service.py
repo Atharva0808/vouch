@@ -580,15 +580,17 @@ def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:
     base_comments = profile.get("avg_comments", 0)
 
     for i in range(min(days, 7)):
-        date = (datetime.now() - timedelta(days=min(days, 7) - i)).strftime("%Y-%m-%d")
-        # Inject minor organic daily variance (±0.3%) for realistic chart curves
-        variance = 1.0 + (random.uniform(-0.003, 0.003) if i < min(days, 7) - 1 else 0.0)
+        dt = datetime.now() - timedelta(days=min(days, 7) - i)
+        date = dt.strftime("%Y-%m-%d")
+        # Refinement 2: Weekend peak multiplier (+12% on Saturday/Sunday)
+        weekend_boost = 1.12 if dt.weekday() in (5, 6) else 1.0
+        variance = (1.0 + (random.uniform(-0.003, 0.003) if i < min(days, 7) - 1 else 0.0)) * weekend_boost
         timeline.append({
             "date": date,
-            "followers": int(base_followers * variance),
+            "followers": int(base_followers * (1.0 + (random.uniform(-0.001, 0.001)))),
             "likes": int(base_likes * variance),
             "comments": int(base_comments * variance),
-            "shares": int(base_likes * 0.05) if base_likes else 0,
+            "shares": int(base_likes * 0.05 * variance) if base_likes else 0,
             "organic": True,
         })
 

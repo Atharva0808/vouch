@@ -276,3 +276,32 @@ def reports_to_combined_pdf(reports: list[dict]) -> bytes:
 
     doc.build(story)
     return buffer.getvalue()
+
+
+def generate_brief_pdf(brief_data: dict) -> bytes:
+    """Generate a standalone PDF document for campaign briefs with target completion dates (Refinement 11)"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=letter,
+        rightMargin=0.75 * inch, leftMargin=0.75 * inch,
+        topMargin=0.75 * inch, bottomMargin=0.75 * inch,
+    )
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(name="BriefTitle", parent=styles["Heading1"], fontSize=18, spaceAfter=12, textColor=colors.HexColor("#1a1a1a"))
+    heading_style = ParagraphStyle(name="BriefHeading", parent=styles["Heading2"], fontSize=13, spaceBefore=14, spaceAfter=6, textColor=colors.HexColor("#222222"))
+    body_style = ParagraphStyle(name="BriefBody", parent=styles["Normal"], fontSize=10, spaceAfter=6, textColor=colors.HexColor("#444444"))
+
+    story = []
+    title = brief_data.get("title", "Campaign Brief")
+    target_date = (datetime.now() + timedelta(days=14)).strftime("%B %d, %Y")
+    
+    story.append(Paragraph(_clean(title), title_style))
+    story.append(Paragraph(f"<b>Target Execution Date:</b> {target_date}", body_style))
+    story.append(Spacer(1, 0.15 * inch))
+
+    content = brief_data.get("brief") or brief_data.get("content") or ""
+    if content:
+        _add_multiline_text(story, content, body_style, heading_style)
+
+    doc.build(story)
+    return buffer.getvalue()

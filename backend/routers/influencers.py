@@ -378,11 +378,12 @@ async def download_influencer_pdf(influencer_id: str, x_user_id: str | None = He
     pdf_bytes = profile_to_pdf(profile)
     name = (profile.get("name") or "influencer").replace(" ", "_")[:50]
     safe_name = "".join(c for c in name if c.isalnum() or c in "._-")[:60] or "profile"
+    today_str = datetime.now().strftime("%Y-%m-%d")
     
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}_profile.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}_audit_{today_str}.pdf"'},
     )
 
 
@@ -494,8 +495,19 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
     cpe_a = round((profile_a.get("suggested_price", 1000) / max(1, l_a)), 2) if l_a > 0 else 0
     cpe_b = round((profile_b.get("suggested_price", 1000) / max(1, l_b)), 2) if l_b > 0 else 0
 
+    def get_tier(followers):
+        if followers >= 50000000: return "Global Icon"
+        if followers >= 10000000: return "Superstar"
+        if followers >= 1000000: return "Mega"
+        if followers >= 100000: return "Macro"
+        if followers >= 10000: return "Micro"
+        return "Nano"
+
+    tier_a, tier_b = get_tier(f_a), get_tier(f_b)
+
     metrics = [
         {"label": "Followers", "value_a": fmt(f_a), "value_b": fmt(f_b), "winner": "a" if f_a > f_b else ("b" if f_b > f_a else None)},
+        {"label": "Creator Tier", "value_a": tier_a, "value_b": tier_b, "winner": None},
         {"label": "Engagement Rate", "value_a": f"{er_a}%", "value_b": f"{er_b}%", "winner": "a" if norm_er_a > norm_er_b else ("b" if norm_er_b > norm_er_a else None)},
         {"label": "Avg Likes", "value_a": fmt(l_a), "value_b": fmt(l_b), "winner": "a" if l_a > l_b else ("b" if l_b > l_a else None)},
         {"label": "Cost Per Eng. (CPE)", "value_a": f"₹{cpe_a}", "value_b": f"₹{cpe_b}", "winner": "a" if cpe_a > 0 and (cpe_b == 0 or cpe_a < cpe_b) else ("b" if cpe_b > 0 and (cpe_a == 0 or cpe_b < cpe_a) else None)},

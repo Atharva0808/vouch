@@ -306,10 +306,10 @@ async def calculate_match_score(influencer: dict, brand_info: dict = None) -> di
     if isinstance(creator_niches, str): creator_niches = [creator_niches]
     brand_niche = brand_info.get("brand_niche", "") if isinstance(brand_info, dict) else ""
     
-    base_score = 70.0
     if er > 3.0: base_score += 10.0
     elif er > 1.5: base_score += 5.0
-    if verified: base_score += 5.0
+    if verified and er > 1.5: base_score += 5.0
+    elif verified: base_score += 2.0 # Reduced bonus for low-engagement paid verification badges
     if followers > 100000: base_score += 4.0
     
     if brand_niche and creator_niches:
@@ -858,7 +858,8 @@ async def estimate_market_rates(influencer: dict) -> dict:
         niche_multiplier = 1.2
     # Standard / Broad (Entertainment, Comedy, Lifestyle)
     elif any(n.lower() in ["entertainment", "comedy", "lifestyle", "music"] for n in niches):
-        niche_multiplier = 0.8
+        # Refinement 1: Exempt 10M+ mega-celebrities from 0.8x broad niche discount
+        niche_multiplier = 1.0 if followers >= 10000000 else 0.8
     
     # 2. Engagement multiplier (0% ER penalizes follower base down to 0)
     er_multiplier = min(1.0, er / 0.5) * (1.0 + (er / 5.0))
