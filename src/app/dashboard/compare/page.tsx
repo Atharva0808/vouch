@@ -87,7 +87,7 @@ export default function ComparePage() {
                         <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-2 block">INFLUENCER B</label>
                         <select value={idB} onChange={(e) => setIdB(e.target.value)} className="neo-input w-full py-3 px-4 rounded-xl text-sm">
                             <option value="">Select influencer...</option>
-                            {influencers.map((inf) => (
+                            {influencers.filter(inf => inf.id !== idA).map((inf) => (
                                 <option key={inf.id} value={inf.id}>{inf.name} ({inf.handle})</option>
                             ))}
                         </select>

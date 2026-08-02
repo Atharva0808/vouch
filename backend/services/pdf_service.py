@@ -27,26 +27,23 @@ def _add_multiline_text(story: list, text: str, body_style, heading_style=None):
         if not cleaned:
             story.append(Spacer(1, 0.06 * inch))
             continue
+        safe_text = html.escape(cleaned.lstrip("#-* ").strip())
         if cleaned.startswith("#"):
-            header_text = cleaned.lstrip("#").strip()
             style = heading_style if heading_style else body_style
-            story.append(Paragraph(html.escape(header_text), style))
+            story.append(Paragraph(safe_text, style))
         elif cleaned.startswith("-") or cleaned.startswith("*"):
-            item_text = cleaned.lstrip("-*").strip()
-            story.append(Paragraph(f"• {html.escape(item_text)}", body_style))
+            story.append(Paragraph(f"• {safe_text}", body_style))
         else:
-            story.append(Paragraph(html.escape(cleaned), body_style))
-
+            story.append(Paragraph(safe_text, body_style))
 
 
 def _fmt_currency(n, currency="INR"):
-    symbol_map = {"INR": "₹", "USD": "$", "EUR": "€", "GBP": "£"}
-    sym = symbol_map.get(currency.upper(), "₹")
+    """Always format currency strictly in INR (Rupees ₹)"""
+    sym = "₹"
     if not isinstance(n, (int, float)):
         return f"{sym}0"
-    if currency.upper() == "INR":
-        if n >= 10000000: return f"{sym}{n/10000000:.2f}Cr"
-        if n >= 100000: return f"{sym}{n/100000:.2f}L"
+    if n >= 10000000: return f"{sym}{n/10000000:.2f}Cr"
+    if n >= 100000: return f"{sym}{n/100000:.2f}L"
     return f"{sym}{int(n):,}"
 
 

@@ -22,9 +22,9 @@ export default function RiskPanel({ data }: RiskPanelProps) {
     };
 
     const overallRisk = flags.length === 0 ? "low" :
-        flags.some(f => f.severity === "critical") ? "critical" :
-            flags.some(f => f.severity === "high") ? "high" :
-                flags.some(f => f.severity === "medium") ? "medium" : "low";
+        flags.some(f => f.severity?.toLowerCase() === "critical") ? "critical" :
+            flags.some(f => f.severity?.toLowerCase() === "high") ? "high" :
+                flags.some(f => f.severity?.toLowerCase() === "medium") ? "medium" : "low";
 
     const riskColors = {
         low: "bg-neo-green",

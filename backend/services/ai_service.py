@@ -182,7 +182,10 @@ Return ONLY valid JSON, no extra text."""
             response_format={"type": "json_object"},
             temperature=0.3,
         )
-        return json.loads(response.choices[0].message.content or "{}")
+        data = json.loads(response.choices[0].message.content or "{}")
+        if "red_flags" in data and isinstance(data["red_flags"], list):
+            data["red_flags"] = [str(x.get("flag", x) if isinstance(x, dict) else x) for x in data["red_flags"]]
+        return data
     except Exception as e:
         print(f"Error analyzing sentiment with Groq: {e}")
         return {
@@ -306,6 +309,8 @@ async def calculate_match_score(influencer: dict, brand_info: dict = None) -> di
     if isinstance(creator_niches, str): creator_niches = [creator_niches]
     brand_niche = brand_info.get("brand_niche", "") if isinstance(brand_info, dict) else ""
     
+    base_score = 65.0
+    
     if er > 3.0: base_score += 10.0
     elif er > 1.5: base_score += 5.0
     if verified and er > 1.5: base_score += 5.0
@@ -318,6 +323,8 @@ async def calculate_match_score(influencer: dict, brand_info: dict = None) -> di
     
     risk = influencer.get("risk_level", "low").lower()
     bot_pct = influencer.get("bot_percentage", 0)
+    
+    calc_score = int(min(100.0, max(10.0, base_score)))
     
     if risk == "high" or bot_pct > 25.0:
         rec = "avoid"

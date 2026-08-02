@@ -23,8 +23,8 @@ const pricingPlans = [
     },
     {
         name: "Pro",
-        monthlyPrice: 10,
-        annualPrice: 100,
+        monthlyPrice: 2499,
+        annualPrice: 24990,
         icon: Star,
         features: [
             "Everything in Free",
@@ -42,8 +42,8 @@ const pricingPlans = [
     },
     {
         name: "Agency",
-        monthlyPrice: 20,
-        annualPrice: 200,
+        monthlyPrice: 7999,
+        annualPrice: 79990,
         icon: Building2,
         features: [
             "Everything in Pro",
@@ -214,7 +214,7 @@ function BillingContent() {
 
                         <div className="mb-6">
                             <span className="text-4xl font-bold text-[var(--color-neo-black)]">
-                                ${annual ? plan.annualPrice : plan.monthlyPrice}
+                                ₹{(annual ? plan.annualPrice : plan.monthlyPrice).toLocaleString('en-IN')}
                             </span>
                             <span className="text-sm text-[var(--color-neo-black)]/50">{annual ? "/yr" : "/mo"}</span>
                         </div>

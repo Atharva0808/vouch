@@ -50,11 +50,13 @@ function fallbackGrowthForecast(inf: InfluencerProfile) {
     const growthRate = inf.trending === "up" ? 1 + (inf.trend_percent / 100 * 0.3)
         : inf.trending === "down" ? 1 - (inf.trend_percent / 100 * 0.15)
             : 1.02;
+    const seed = stringToSeed(inf.id || inf.handle || "default");
 
     return Array.from({ length: 6 }, (_, i) => {
         const monthIdx = (currentMonth + i + 1) % 12;
         const predicted = Math.round(baseFollowers * Math.pow(growthRate, i + 1));
-        const engagement = Math.round(inf.engagement_rate * (1 + (Math.random() * 0.2 - 0.1)) * 100) / 100;
+        const variance = (pseudoRandom(seed, i) * 0.2 - 0.1);
+        const engagement = Math.round(inf.engagement_rate * (1 + variance) * 100) / 100;
         return {
             month: months[monthIdx],
             followers: predicted,
@@ -107,29 +109,24 @@ function fallbackCampaignPrediction(inf: InfluencerProfile) {
     const seed = stringToSeed(inf.id || inf.handle || "default");
 
     const estimatedReach = Math.round(followers * 0.35);
-    const estimatedImpressions = Math.round(followers * 1.8);
+    const estimatedImpressions = Math.round(followers * 0.8);
     const estimatedClicks = Math.round(estimatedReach * engRate * 0.45);
     const estimatedConversions = Math.round(estimatedClicks * 0.028);
 
-    // Realistic CPM tier benchmark synchronized with estimate_market_rates
-    const baseRate = inf.platform === "instagram" ? 150.0 : 250.0;
-    let rateFactor = baseRate;
-    if (followers >= 50000000) rateFactor = 500.0;
-    else if (followers >= 10000000) rateFactor = 400.0;
-    else if (followers >= 1000000) rateFactor = 300.0;
-
-    const fairPrice = (followers / 1000) * rateFactor * (1.0 + (engRate * 20));
+    // Realistic CPM benchmark in INR (₹250 - ₹450 per 1,000 impressions)
+    const cpmINR = inf.platform === "youtube" ? 400.0 : 250.0;
+    const fairPrice = (Math.max(1000, estimatedImpressions) / 1000) * cpmINR * (1.0 + (engRate * 2));
     const safeCost = Math.round(fairPrice > 0 ? fairPrice : 5000);
 
-    // Estimate CPE (Cost Per Engagement)
+    // Estimate CPE (Cost Per Engagement) in INR
     const totalEngagements = Math.round(followers * engRate);
-    const cpe = totalEngagements > 0 ? Math.round((safeCost / totalEngagements) * 100) / 100 : 0;
+    const cpe = totalEngagements > 0 ? Math.round((safeCost / totalEngagements) * 100) / 100 : 2.5;
 
     // Set a realistic deterministic ROI based on match score
-    const targetRoi = 2.0 + (inf.match_score / 100) * 3.5 + pseudoRandom(seed, 2); // Deterministic range
+    const targetRoi = 2.0 + (inf.match_score / 100) * 3.5 + pseudoRandom(seed, 2);
     const finalRoi = inf.predicted_roi > 0 ? inf.predicted_roi : Math.round(targetRoi * 10) / 10;
 
-    // calculate equivalent monetary return
+    // calculate equivalent monetary return in INR
     const engagementValue = Math.round(safeCost * finalRoi);
 
     return {

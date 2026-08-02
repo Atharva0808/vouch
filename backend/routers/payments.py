@@ -74,6 +74,7 @@ async def get_plans():
             {
                 "name": "Free",
                 "price": 0,
+                "currency": "INR",
                 "features": [
                     "10 influencer lookups/month",
                     "Basic engagement metrics",
@@ -90,7 +91,8 @@ async def get_plans():
             },
             {
                 "name": "Pro",
-                "price": 29,
+                "price": 2499,
+                "currency": "INR",
                 "features": [
                     "50 influencer lookups/month",
                     "Deep-dive engagement analysis",
@@ -109,7 +111,8 @@ async def get_plans():
             },
             {
                 "name": "Agency",
-                "price": 99,
+                "price": 7999,
+                "currency": "INR",
                 "features": [
                     "Unlimited influencer lookups",
                     "Full risk monitoring dashboard",
@@ -121,7 +124,7 @@ async def get_plans():
                     "Dedicated account manager",
                 ],
                 "limitations": [],
-                "cta": "Contact Sales",
+                "cta": "Upgrade to Agency",
                 "popular": False,
             },
         ]

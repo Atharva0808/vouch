@@ -37,9 +37,15 @@ export default function TopBar() {
     useEffect(() => {
         loadUser();
         loadNotifications();
-        // Poll for new notifications every 30s
+        
+        const handleProfileUpdate = () => loadUser();
+        window.addEventListener("user-profile-updated", handleProfileUpdate);
+
         const interval = setInterval(loadNotifications, 30000);
-        return () => clearInterval(interval);
+        return () => {
+            window.removeEventListener("user-profile-updated", handleProfileUpdate);
+            clearInterval(interval);
+        };
     }, []);
 
     // Close dropdowns on outside click

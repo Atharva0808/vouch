@@ -97,51 +97,52 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         avg_comments = profile.get("avg_comments", 0)
         following = profile.get("following", 0)
         er = profile.get("engagement_rate", 0)
+        platform_name = (profile.get("platform") or "instagram").lower()
         
         bot_score = 0  # 0-100 scale
         
         if followers > 0:
-            like_ratio = avg_likes / followers
+            like_ratio = avg_likes / followers if followers > 0 else 0
             comment_ratio = avg_comments / followers if followers > 0 else 0
             follow_ratio = following / followers if followers > 0 else 0
             comments_to_likes = avg_comments / avg_likes if avg_likes > 0 else 0
             
-            # 1. Engagement rate suspicion (0-30 pts)
-            # Mega accounts (1M+): expected ER 0.5-3%, Macro (100K-1M): 1-4%, Micro (<100K): 2-8%
+            # Platform-aware baseline thresholds (YouTube engagement rates are lower than IG)
+            is_yt = platform_name == "youtube"
+            low_er_thresh = 0.15 if is_yt else 0.5
+            
+            # 1. Engagement rate suspicion
             if followers >= 1000000:
-                if er < 0.3: bot_score += 25  # suspiciously low for that many followers
-                elif er < 0.8: bot_score += 15
-                elif er > 8: bot_score += 20  # suspiciously high
+                if er < (0.1 if is_yt else 0.3): bot_score += 20
+                elif er > (6.0 if is_yt else 10.0): bot_score += 15
             elif followers >= 100000:
-                if er < 0.5: bot_score += 20
-                elif er < 1.0: bot_score += 10
-                elif er > 10: bot_score += 20
+                if er < low_er_thresh: bot_score += 15
+                elif er > (8.0 if is_yt else 12.0): bot_score += 15
             else:
-                if er < 0.5: bot_score += 15
-                elif er > 15: bot_score += 15
+                if er < low_er_thresh: bot_score += 10
+                elif er > (12.0 if is_yt else 18.0): bot_score += 12
             
-            # 2. Like-to-follower ratio (0-25 pts)
-            if like_ratio < 0.002: bot_score += 25  # less than 0.2% = likely fake followers
-            elif like_ratio < 0.005: bot_score += 15
-            elif like_ratio < 0.01: bot_score += 8
-            elif like_ratio > 0.15: bot_score += 15  # suspiciously high
+            # 2. Like-to-follower ratio (Skip heavy penalty if hidden likes estimated via comments)
+            if avg_comments > 0 and avg_likes > 0:
+                if like_ratio < 0.001 and not is_yt: bot_score += 15
+                elif like_ratio > 0.20: bot_score += 12
             
-            # 3. Comments-to-likes ratio (0-20 pts)
-            if avg_likes > 0:
-                if comments_to_likes < 0.005: bot_score += 18  # almost no comments vs likes
-                elif comments_to_likes < 0.01: bot_score += 10
-                elif comments_to_likes > 0.5: bot_score += 12  # too many comments vs likes (bot comments)
+            # 3. Comments-to-likes ratio (0-15 pts)
+            if avg_likes > 0 and avg_comments > 0:
+                if comments_to_likes < 0.003: bot_score += 15  # unnatural lack of comments vs likes
+                elif comments_to_likes > 0.6: bot_score += 10
             
-            # 4. Following-to-followers ratio for large accounts (0-15 pts)
-            if followers >= 100000:
-                if follow_ratio > 0.7: bot_score += 15  # large accounts don't follow back this much
+            # 4. Following-to-followers ratio for large accounts
+            if followers >= 100000 and not is_yt:
+                if follow_ratio > 0.7: bot_score += 15
                 elif follow_ratio > 0.4: bot_score += 8
             
-            # 5. Zero engagement despite followers (0-10 pts)
-            if followers > 10000 and avg_likes == 0: bot_score += 10
+            # 5. Completely zero likes AND zero comments
+            if followers > 10000 and avg_likes == 0 and avg_comments == 0:
+                bot_score += 25
         
-        # Clamp between 2-95 (no account is 0% or 100% bots)
-        bot_score = max(2, min(95, bot_score))
+        # Clamp between 3-92
+        bot_score = max(3, min(92, bot_score))
         profile["bot_percentage"] = bot_score
         
         # Sentiment

@@ -3,8 +3,48 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Copy, Check, FileText, User, Briefcase, Target, Loader } from "lucide-react";
-import ReactMarkdown from "react-markdown";
 import { generateBrief, getAllInfluencers, type InfluencerProfile } from "@/lib/api-client";
+
+function FormattedMarkdown({ content }: { content: string }) {
+    if (!content) return null;
+    const lines = content.split('\n');
+    return (
+        <div className="space-y-3">
+            {lines.map((line, idx) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={idx} className="h-2" />;
+                if (trimmed.startsWith("### ")) {
+                    return <h3 key={idx} className="text-base font-bold text-[var(--color-neo-black)] mt-3 mb-1">{parseInlineBold(trimmed.slice(4))}</h3>;
+                }
+                if (trimmed.startsWith("## ")) {
+                    return <h2 key={idx} className="text-lg font-bold text-[var(--color-neo-black)] mt-4 mb-2">{parseInlineBold(trimmed.slice(3))}</h2>;
+                }
+                if (trimmed.startsWith("# ")) {
+                    return <h1 key={idx} className="text-xl font-extrabold text-[var(--color-neo-black)] mt-4 mb-2">{parseInlineBold(trimmed.slice(2))}</h1>;
+                }
+                if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+                    return (
+                        <div key={idx} className="flex items-start gap-2 text-sm text-[var(--color-neo-black)]/90 ml-2">
+                            <span className="font-bold text-[var(--color-neo-pink)]">•</span>
+                            <span>{parseInlineBold(trimmed.slice(2))}</span>
+                        </div>
+                    );
+                }
+                return <p key={idx} className="text-sm text-[var(--color-neo-black)]/90 leading-relaxed">{parseInlineBold(trimmed)}</p>;
+            })}
+        </div>
+    );
+}
+
+function parseInlineBold(text: string) {
+    const parts = text.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+            return <strong key={i} className="font-bold text-[var(--color-neo-black)]">{part.slice(2, -2)}</strong>;
+        }
+        return part;
+    });
+}
 
 export default function BriefPage() {
     const [influencers, setInfluencers] = useState<InfluencerProfile[]>([]);
@@ -291,18 +331,7 @@ export default function BriefPage() {
                             </div>
                         </div>
                         <div className="prose prose-sm max-w-none text-[var(--color-neo-black)]/90 bg-[var(--color-neo-black)]/3 p-4 rounded-xl leading-relaxed">
-                            <ReactMarkdown
-                                components={{
-                                    h2: ({ children }) => <h2 className="text-base font-bold mt-4 mb-2 first:mt-0">{children}</h2>,
-                                    h3: ({ children }) => <h3 className="text-sm font-bold mt-3 mb-1">{children}</h3>,
-                                    p: ({ children }) => <p className="text-sm mb-2">{children}</p>,
-                                    ul: ({ children }) => <ul className="list-disc list-inside text-sm mb-2 space-y-1">{children}</ul>,
-                                    li: ({ children }) => <li className="text-sm">{children}</li>,
-                                    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
-                                }}
-                            >
-                                {brief}
-                            </ReactMarkdown>
+                            <FormattedMarkdown content={brief} />
                         </div>
                     </motion.div>
                 )}

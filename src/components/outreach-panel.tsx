@@ -54,7 +54,16 @@ export default function OutreachPanel({ influencerId }: { influencerId: string }
     };
 
     const copyToClipboard = (text: string, id: string) => {
-        navigator.clipboard.writeText(text);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text);
+        } else {
+            const textarea = document.createElement("textarea");
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+        }
         setCopied(id);
         setTimeout(() => setCopied(null), 2000);
     };

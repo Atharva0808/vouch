@@ -78,6 +78,14 @@ export default function SettingsPage() {
         try {
             const updated = await updateUserProfile(profile.id, formData);
             setProfile(updated);
+            
+            // Also update Supabase metadata if full_name changed
+            if (formData.full_name) {
+                const supabase = createClient();
+                await supabase.auth.updateUser({ data: { full_name: formData.full_name } });
+            }
+            window.dispatchEvent(new Event("user-profile-updated"));
+            
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
         } catch (err: any) {

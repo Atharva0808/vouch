@@ -83,7 +83,8 @@ async def search_influencers(
     if platform:
         q = q.eq("platform", platform)
     if niche:
-        q = q.contains("niche", [niche])
+        # Title case to match niche array entries in DB
+        q = q.contains("niche", [niche.capitalize()])
     if min_followers:
         q = q.gte("followers", min_followers)
     elif not query:
@@ -94,7 +95,7 @@ async def search_influencers(
     if min_engagement:
         q = q.or_(f"engagement_rate.gte.{min_engagement},engagement_rate.is.null")
     if risk_level:
-        q = q.eq("risk_level", risk_level)
+        q = q.eq("risk_level", risk_level.lower())
     
     result = q.order("match_score", desc=True).limit(50).execute()
     return result.data or []
