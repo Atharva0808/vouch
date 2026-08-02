@@ -91,7 +91,7 @@ async def get_plans():
             },
             {
                 "name": "Pro",
-                "price": 2499,
+                "price": 999,
                 "currency": "INR",
                 "features": [
                     "50 influencer lookups/month",
@@ -111,7 +111,7 @@ async def get_plans():
             },
             {
                 "name": "Agency",
-                "price": 7999,
+                "price": 3999,
                 "currency": "INR",
                 "features": [
                     "Unlimited influencer lookups",

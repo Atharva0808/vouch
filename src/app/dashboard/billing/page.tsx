@@ -23,8 +23,8 @@ const pricingPlans = [
     },
     {
         name: "Pro",
-        monthlyPrice: 2499,
-        annualPrice: 24990,
+        monthlyPrice: 999,
+        annualPrice: 9990,
         icon: Star,
         features: [
             "Everything in Free",
@@ -42,8 +42,8 @@ const pricingPlans = [
     },
     {
         name: "Agency",
-        monthlyPrice: 7999,
-        annualPrice: 79990,
+        monthlyPrice: 3999,
+        annualPrice: 39990,
         icon: Building2,
         features: [
             "Everything in Pro",

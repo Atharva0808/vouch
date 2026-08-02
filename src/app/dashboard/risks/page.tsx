@@ -28,6 +28,7 @@ export default function RisksPage() {
     const [sourceFilter, setSourceFilter] = useState<"all" | "verified_metric" | "ai_inference">("all");
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "youtube" | "tiktok">("all");
+    const [locked, setLocked] = useState(false);
 
     useEffect(() => {
         loadRisks();
@@ -35,10 +36,14 @@ export default function RisksPage() {
 
     const loadRisks = async () => {
         setLoading(true);
+        setLocked(false);
         try {
             const data = await getAllRiskFlags();
             setRisks(data as RiskFlagWithInfluencer[]);
-        } catch (err) {
+        } catch (err: any) {
+            if (err.message && (err.message.includes("upgrade") || err.message.includes("403") || err.message.includes("Pro or Agency"))) {
+                setLocked(true);
+            }
             console.error("Failed to load risk flags", err);
         }
         setLoading(false);

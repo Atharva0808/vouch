@@ -45,17 +45,9 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
             except Exception:
                 pass
 
-        # 2. Check search quota for NEW profile fetches (default 10 free audits)
+        # Demo Mode: Unlimited search quota for presentation
         user_prof = await db.get_user_profile(x_user_id)
-        if user_prof:
-            tier = user_prof.get("tier", "free")
-            used = user_prof.get("searches_used", 0)
-            limit = user_prof.get("searches_limit", 10)
-            if tier == "free" and used >= limit:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Free search quota limit reached ({used}/{limit}). Please upgrade your plan to unlock unlimited searches."
-                )
+        # Search quota restriction disabled for presentation demo
         
         # 1. Fetch real profile from social media
         profile = await social.fetch_social_profile(clean_handle, req.platform)

@@ -12,6 +12,7 @@ export default function ComparePage() {
     const [idB, setIdB] = useState("");
     const [comparison, setComparison] = useState<any>(null);
     const [loading, setLoading] = useState(false);
+    const [locked, setLocked] = useState(false);
 
     useEffect(() => {
         loadInfluencers();
@@ -36,10 +37,14 @@ export default function ComparePage() {
             return;
         }
         setLoading(true);
+        setLocked(false);
         try {
             const result = await compareInfluencers(idA, idB);
             setComparison(result);
         } catch (err: any) {
+            if (err.message && (err.message.includes("upgrade") || err.message.includes("403") || err.message.includes("Pro or Agency"))) {
+                setLocked(true);
+            }
             console.error(err);
         }
         setLoading(false);
