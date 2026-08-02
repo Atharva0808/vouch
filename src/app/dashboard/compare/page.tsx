@@ -71,7 +71,7 @@ export default function ComparePage() {
                 animate={{ y: 0, opacity: 1 }}
                 className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)]"
             >
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
                     <div className="flex-1">
                         <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-2 block">INFLUENCER A</label>
                         <select value={idA} onChange={(e) => setIdA(e.target.value)} className="neo-input w-full py-3 px-4 rounded-xl text-sm">
@@ -84,7 +84,7 @@ export default function ComparePage() {
                     <motion.div
                         animate={{ rotate: [0, 360] }}
                         transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        className="p-3 bg-[var(--color-neo-pink)] neo-border rounded-full mt-5"
+                        className="p-3 bg-[var(--color-neo-pink)] neo-border rounded-full self-center my-1 md:mt-5 shrink-0"
                     >
                         <ArrowLeftRight size={18} className="text-white" />
                     </motion.div>

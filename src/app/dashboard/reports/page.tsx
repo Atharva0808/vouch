@@ -242,7 +242,7 @@ export default function ReportsPage() {
                             initial={{ scale: 0.9, opacity: 0, y: 20 }}
                             animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                            className="relative w-full max-w-lg neo-card rounded-3xl bg-neo-white p-8 overflow-hidden"
+                            className="relative w-full max-w-lg neo-card rounded-3xl bg-neo-white p-4 sm:p-8 max-h-[90vh] overflow-y-auto"
                         >
                             <button
                                 onClick={() => setShowModal(false)}

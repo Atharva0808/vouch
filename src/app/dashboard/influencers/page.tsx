@@ -176,7 +176,7 @@ export default function InfluencersPage() {
                                     {/* Delete button */}
                                     <button
                                         onClick={(e) => handleDelete(inf.id, e)}
-                                        className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity bg-red-50 hover:bg-red-100 text-red-500 p-1.5 rounded-lg z-10"
+                                        className="absolute top-3 right-3 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity bg-red-50 hover:bg-red-100 text-red-500 p-1.5 rounded-lg z-10"
                                         title="Delete"
                                     >
                                         {deleting === inf.id ? <Loader size={12} className="animate-spin" /> : <X size={12} />}

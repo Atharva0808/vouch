@@ -125,7 +125,7 @@ export default function TopBar() {
         <motion.header
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="sticky top-0 z-20 bg-neo-white/80 backdrop-blur-md border-b-3 border-neo-black px-4 sm:px-6 py-4"
+            className="sticky top-0 z-20 bg-neo-white/80 backdrop-blur-md border-b-3 border-neo-black pl-14 pr-4 lg:px-6 py-3 sm:py-4"
         >
             <div className="flex items-center justify-between gap-2 sm:gap-4">
                 {/* Search Bar */}
@@ -142,6 +142,18 @@ export default function TopBar() {
                         />
                     </div>
                 </div>
+
+                {/* Mobile Search Button */}
+                <Link href="/dashboard/search" className="block md:hidden">
+                    <motion.div
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="neo-btn bg-neo-yellow p-2.5 rounded-xl flex items-center gap-1.5 text-xs font-bold"
+                    >
+                        <Search size={16} />
+                        <span>Search</span>
+                    </motion.div>
+                </Link>
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2 sm:gap-3 ml-auto">

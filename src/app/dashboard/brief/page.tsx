@@ -302,7 +302,7 @@ export default function BriefPage() {
                         exit={{ opacity: 0 }}
                         className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)]"
                     >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                             <div className="flex items-center gap-2">
                                 <FileText size={18} className="text-[var(--color-neo-lavender)]" />
                                 <h3 className="text-lg font-bold text-[var(--color-neo-black)] uppercase tracking-tight">Generated Brief</h3>

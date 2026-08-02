@@ -123,7 +123,7 @@ export default function SettingsPage() {
                 <motion.div
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    className="neo-card bg-neo-white rounded-3xl p-8 space-y-6"
+                    className="neo-card bg-neo-white rounded-3xl p-4 sm:p-8 space-y-6"
                 >
                     <div className="flex items-center gap-3 mb-2">
                         <User className="text-neo-pink" />
