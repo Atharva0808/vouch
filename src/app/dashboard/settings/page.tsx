@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert } from "lucide-react";
+import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert, LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase-browser";
@@ -92,6 +92,17 @@ export default function SettingsPage() {
             setError("Failed to save profile changes.");
         }
         setSaving(false);
+    };
+
+    const handleLogout = async () => {
+        try {
+            const supabase = createClient();
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            window.location.href = "/login";
+        }
     };
 
     if (loading) {
@@ -217,6 +228,29 @@ export default function SettingsPage() {
                             </label>
                         ))}
                     </div>
+                </motion.div>
+
+                {/* Account Actions / Log Out */}
+                <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.15 }}
+                    className="neo-card bg-red-50/60 border-neo-red/40 rounded-3xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                >
+                    <div>
+                        <h3 className="text-base font-bold text-neo-black">Sign Out of Account</h3>
+                        <p className="text-xs text-neo-black/50 font-medium">Log out of your current session on this device.</p>
+                    </div>
+                    <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        type="button"
+                        onClick={handleLogout}
+                        className="neo-btn bg-neo-red text-neo-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2"
+                    >
+                        <LogOut size={16} />
+                        Log Out
+                    </motion.button>
                 </motion.div>
 
                 <div className="flex items-center justify-start gap-6">

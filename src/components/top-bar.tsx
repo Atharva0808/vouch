@@ -76,9 +76,15 @@ export default function TopBar() {
     };
 
     const handleLogout = async () => {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-        router.push("/login");
+        try {
+            setShowUserMenu(false);
+            const supabase = createClient();
+            await supabase.auth.signOut();
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            window.location.href = "/login";
+        }
     };
 
     const handleSearch = (e: React.KeyboardEvent) => {
