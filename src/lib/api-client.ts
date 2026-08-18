@@ -499,3 +499,78 @@ export async function deleteRiskFlag(flagId: string) {
         method: "DELETE",
     });
 }
+
+// ======== Campaign Tracker APIs ========
+
+export interface CampaignSummary {
+    id: string;
+    name: string;
+    brand_name: string;
+    budget: number;
+    status: string;
+    start_date?: string;
+    end_date?: string;
+    created_at?: string;
+    total_spend: number;
+    total_reach: number;
+    total_impressions: number;
+    total_conversions: number;
+    total_sales: number;
+    overall_roi: number;
+    conversion_rate: number;
+    creators_count: number;
+}
+
+export interface CampaignCreatorItem {
+    id: string;
+    influencer_id: string;
+    name: string;
+    handle: string;
+    platform: string;
+    avatar_url?: string;
+    followers: number;
+    agreed_fee: number;
+    actual_impressions: number;
+    conversions: number;
+    sales_generated: number;
+    status: string;
+}
+
+export interface CampaignDetail {
+    campaign: CampaignSummary;
+    creators: CampaignCreatorItem[];
+}
+
+/** List all active and past marketing campaigns */
+export async function getCampaigns() {
+    return apiFetch<CampaignSummary[]>("/api/campaigns/");
+}
+
+/** Get detailed breakdown and creator roster for a campaign */
+export async function getCampaignDetail(id: string) {
+    return apiFetch<CampaignDetail>(`/api/campaigns/${id}`);
+}
+
+/** Create a new marketing campaign and assign creators */
+export async function createCampaign(params: {
+    name: string;
+    brand_name: string;
+    budget: number;
+    start_date?: string;
+    end_date?: string;
+    creator_ids: string[];
+    creator_fees?: Record<string, number>;
+}) {
+    return apiFetch<{ status: string; campaign: any }>("/api/campaigns/create", {
+        method: "POST",
+        body: JSON.stringify(params),
+    });
+}
+
+/** Delete a campaign */
+export async function deleteCampaign(id: string) {
+    return apiFetch<{ status: string; message: string }>(`/api/campaigns/${id}`, {
+        method: "DELETE",
+    });
+}
+

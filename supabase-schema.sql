@@ -176,3 +176,57 @@ CREATE POLICY "Users can only see their own activity" ON activity_feed
 
 CREATE POLICY "Users can insert their own activity" ON activity_feed
     FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- 9. Campaigns Table
+CREATE TABLE IF NOT EXISTS campaigns (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL DEFAULT auth.uid(),
+    name TEXT NOT NULL,
+    brand_name TEXT NOT NULL,
+    budget DECIMAL DEFAULT 0.0,
+    status TEXT DEFAULT 'Active', -- 'Active', 'Draft', 'Completed'
+    start_date DATE DEFAULT CURRENT_DATE,
+    end_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 10. Campaign Creators Table
+CREATE TABLE IF NOT EXISTS campaign_creators (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
+    influencer_id UUID REFERENCES influencers(id) ON DELETE CASCADE,
+    agreed_fee DECIMAL DEFAULT 0.0,
+    posts_delivered INTEGER DEFAULT 1,
+    target_impressions BIGINT DEFAULT 100000,
+    actual_impressions BIGINT DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+    sales_generated DECIMAL DEFAULT 0.0,
+    status TEXT DEFAULT 'Assigned', -- 'Assigned', 'Content Live', 'Completed'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE campaign_creators ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can only see their own campaigns" ON campaigns;
+CREATE POLICY "Users can only see their own campaigns" ON campaigns
+    FOR SELECT USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can insert their own campaigns" ON campaigns
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own campaigns" ON campaigns
+    FOR UPDATE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own campaigns" ON campaigns
+    FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can see campaign creators" ON campaign_creators
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM campaigns
+            WHERE campaigns.id = campaign_creators.campaign_id
+            AND campaigns.user_id = auth.uid()
+        )
+    );
+

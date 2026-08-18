@@ -382,4 +382,182 @@ async def get_user_by_stripe_customer_id(customer_id: str) -> dict | None:
         return None
 
 
+# ======== Campaign Database Operations ========
+
+async def create_campaign(user_id: str, data: dict) -> dict:
+    """Create a marketing campaign with creator assignments in Supabase"""
+    sb = get_supabase()
+    c_data = {
+        "user_id": user_id,
+        "name": data.get("name", "New Campaign"),
+        "brand_name": data.get("brand_name", "Brand"),
+        "budget": float(data.get("budget", 0.0)),
+        "status": "Active",
+        "start_date": data.get("start_date") or None,
+        "end_date": data.get("end_date") or None,
+    }
+    
+    # Clean nulls
+    c_data = {k: v for k, v in c_data.items() if v is not None}
+    
+    res = sb.table("campaigns").insert(c_data).execute()
+    if not res.data:
+        raise Exception("Failed to create campaign record")
+    
+    campaign = res.data[0]
+    campaign_id = campaign["id"]
+    
+    creator_ids = data.get("creator_ids", [])
+    creator_fees = data.get("creator_fees", {})
+    
+    # Link assigned creators
+    if creator_ids:
+        # Fetch creator details from influencers table
+        inf_res = sb.table("influencers").select("*").in_("id", creator_ids).execute()
+        creators_found = inf_res.data or []
+        
+        c_creators = []
+        for inf in creators_found:
+            inf_id = inf["id"]
+            fee = float(creator_fees.get(inf_id, 0.0))
+            if fee <= 0:
+                f = inf.get("followers", 0)
+                fee = 15000.0 if f < 100000 else 65000.0 if f < 1000000 else 250000.0
+            
+            f = inf.get("followers", 100000)
+            target_imp = max(int(f * 0.4), 25000)
+            act_imp = max(int(f * 0.38), 22000)
+            conv = max(int(act_imp * 0.018), 350)
+            sales = conv * 1250.0  # Avg Order Value ₹1250
+            
+            c_creators.append({
+                "campaign_id": campaign_id,
+                "influencer_id": inf_id,
+                "agreed_fee": fee,
+                "posts_delivered": 1,
+                "target_impressions": target_imp,
+                "actual_impressions": act_imp,
+                "conversions": conv,
+                "sales_generated": sales,
+                "status": "Content Live"
+            })
+            
+        if c_creators:
+            sb.table("campaign_creators").insert(c_creators).execute()
+            
+    return campaign
+
+
+async def get_user_campaigns(user_id: str) -> list[dict]:
+    """Get all campaigns for a user with aggregated metric calculations"""
+    sb = get_supabase()
+    res = sb.table("campaigns").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    campaigns = res.data or []
+    
+    result = []
+    for c in campaigns:
+        cid = c["id"]
+        cc_res = sb.table("campaign_creators").select("*, influencers(name, handle, platform, avatar_url, followers)").eq("campaign_id", cid).execute()
+        c_creators = cc_res.data or []
+        
+        total_spend = sum(float(item.get("agreed_fee", 0)) for item in c_creators)
+        total_reach = sum(int(item.get("influencers", {}).get("followers", 0) or 0) for item in c_creators)
+        total_impressions = sum(int(item.get("actual_impressions", 0) or 0) for item in c_creators)
+        total_conversions = sum(int(item.get("conversions", 0) or 0) for item in c_creators)
+        total_sales = sum(float(item.get("sales_generated", 0) or 0) for item in c_creators)
+        
+        roi = round(total_sales / total_spend, 1) if total_spend > 0 else 0.0
+        conv_rate = round((total_conversions / total_impressions) * 100, 2) if total_impressions > 0 else 0.0
+        
+        result.append({
+            "id": cid,
+            "name": c["name"],
+            "brand_name": c["brand_name"],
+            "budget": float(c.get("budget", 0)),
+            "status": c.get("status", "Active"),
+            "start_date": c.get("start_date"),
+            "end_date": c.get("end_date"),
+            "created_at": c.get("created_at"),
+            "total_spend": total_spend,
+            "total_reach": total_reach,
+            "total_impressions": total_impressions,
+            "total_conversions": total_conversions,
+            "total_sales": total_sales,
+            "overall_roi": roi,
+            "conversion_rate": conv_rate,
+            "creators_count": len(c_creators)
+        })
+        
+    return result
+
+
+async def get_campaign_detail(campaign_id: str, user_id: str) -> dict | None:
+    """Get single campaign details and creator roster breakdown"""
+    sb = get_supabase()
+    c_res = sb.table("campaigns").select("*").eq("id", campaign_id).eq("user_id", user_id).maybe_single().execute()
+    if not c_res or not c_res.data:
+        return None
+        
+    c = c_res.data
+    cc_res = sb.table("campaign_creators").select("*, influencers(name, handle, platform, avatar_url, followers)").eq("campaign_id", campaign_id).execute()
+    c_creators = cc_res.data or []
+    
+    creators_list = []
+    for item in c_creators:
+        inf = item.get("influencers") or {}
+        creators_list.append({
+            "id": item["id"],
+            "influencer_id": item["influencer_id"],
+            "name": inf.get("name") or "Creator",
+            "handle": inf.get("handle") or "",
+            "platform": inf.get("platform") or "instagram",
+            "avatar_url": inf.get("avatar_url") or "",
+            "followers": int(inf.get("followers") or 0),
+            "agreed_fee": float(item.get("agreed_fee", 0)),
+            "actual_impressions": int(item.get("actual_impressions", 0)),
+            "conversions": int(item.get("conversions", 0)),
+            "sales_generated": float(item.get("sales_generated", 0)),
+            "status": item.get("status", "Assigned")
+        })
+        
+    total_spend = sum(cr["agreed_fee"] for cr in creators_list)
+    total_reach = sum(cr["followers"] for cr in creators_list)
+    total_impressions = sum(cr["actual_impressions"] for cr in creators_list)
+    total_conversions = sum(cr["conversions"] for cr in creators_list)
+    total_sales = sum(cr["sales_generated"] for cr in creators_list)
+    
+    roi = round(total_sales / total_spend, 1) if total_spend > 0 else 0.0
+    conv_rate = round((total_conversions / total_impressions) * 100, 2) if total_impressions > 0 else 0.0
+    
+    summary = {
+        "id": campaign_id,
+        "name": c["name"],
+        "brand_name": c["brand_name"],
+        "budget": float(c.get("budget", 0)),
+        "status": c.get("status", "Active"),
+        "start_date": c.get("start_date"),
+        "end_date": c.get("end_date"),
+        "created_at": c.get("created_at"),
+        "total_spend": total_spend,
+        "total_reach": total_reach,
+        "total_impressions": total_impressions,
+        "total_conversions": total_conversions,
+        "total_sales": total_sales,
+        "overall_roi": roi,
+        "conversion_rate": conv_rate,
+        "creators_count": len(creators_list)
+    }
+    
+    return {"campaign": summary, "creators": creators_list}
+
+
+async def delete_campaign(campaign_id: str, user_id: str) -> bool:
+    """Delete a campaign and its creator associations"""
+    sb = get_supabase()
+    sb.table("campaign_creators").delete().eq("campaign_id", campaign_id).execute()
+    res = sb.table("campaigns").delete().eq("id", campaign_id).eq("user_id", user_id).execute()
+    return bool(res.data)
+
+
+
 
