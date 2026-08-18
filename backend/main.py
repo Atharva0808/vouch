@@ -6,7 +6,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routers import influencers, ai_routes, payments, users, campaigns, recommendations
+from routers import influencers, ai_routes, payments, users, campaigns
 
 load_dotenv()
 
@@ -50,7 +50,6 @@ app.include_router(ai_routes.router)
 app.include_router(payments.router)
 app.include_router(users.router)
 app.include_router(campaigns.router)
-app.include_router(recommendations.router)
 
 
 @app.get("/")
