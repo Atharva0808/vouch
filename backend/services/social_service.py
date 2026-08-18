@@ -447,32 +447,10 @@ def _parse_yt_number(s: str) -> int:
 # ======== Unified fetch ========
 
 async def fetch_social_profile(handle: str, platform: str) -> dict:
-    """Unified social media profile fetcher"""
+    """Unified social media profile fetcher (Instagram & YouTube)"""
     plat = (platform or "instagram").lower().strip()
-    if plat == "instagram":
-        return await fetch_instagram_profile(handle)
-    elif plat == "youtube":
+    if plat == "youtube":
         return await fetch_youtube_channel(handle)
-    elif plat == "tiktok":
-        # Graceful fallback structure for TikTok channels until dedicated TikTok scraper credentials are bound
-        clean_h = handle.replace("@", "").strip()
-        return {
-            "name": clean_h.capitalize(),
-            "handle": f"@{clean_h}",
-            "platform": "tiktok",
-            "avatar_url": "",
-            "followers": 150000,
-            "following": 320,
-            "posts": 85,
-            "engagement_rate": 4.5,
-            "avg_likes": 6500,
-            "avg_comments": 280,
-            "verified": False,
-            "bio": f"TikTok Creator @{clean_h}",
-            "location": "Global",
-            "niche": ["Short-form Video", "Entertainment"],
-            "recent_posts": []
-        }
     else:
         return await fetch_instagram_profile(handle)
 

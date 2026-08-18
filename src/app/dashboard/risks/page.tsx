@@ -27,7 +27,7 @@ export default function RisksPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [sourceFilter, setSourceFilter] = useState<"all" | "verified_metric" | "ai_inference">("all");
     const [deletingId, setDeletingId] = useState<string | null>(null);
-    const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "youtube" | "tiktok">("all");
+    const [platformFilter, setPlatformFilter] = useState<"all" | "instagram" | "youtube">("all");
     const [locked, setLocked] = useState(false);
 
     useEffect(() => {
@@ -64,7 +64,6 @@ export default function RisksPage() {
     // Platform counts
     const instagramCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "instagram").length;
     const youtubeCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "youtube").length;
-    const tiktokCount = risks.filter(r => r.influencers?.platform?.toLowerCase() === "tiktok").length;
 
     const filteredRisks = risks.filter(risk => {
         const matchesSearch =
@@ -241,15 +240,6 @@ export default function RisksPage() {
                         }`}
                 >
                     <Youtube size={12} /> YouTube ({youtubeCount})
-                </button>
-                <button
-                    onClick={() => setPlatformFilter("tiktok")}
-                    className={`neo-badge px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 transition-colors cursor-pointer ${platformFilter === "tiktok"
-                        ? "bg-black text-white"
-                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                        }`}
-                >
-                    TikTok ({tiktokCount})
                 </button>
             </div>
 

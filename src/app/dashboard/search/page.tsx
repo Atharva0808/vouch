@@ -9,7 +9,7 @@ import Link from "next/link";
 import AvatarImg from "@/components/avatar-img";
 import SkeletonShimmer from "@/components/skeleton-shimmer";
 
-const platformOptions = ["all", "instagram", "youtube", "tiktok", "facebook"];
+const platformOptions = ["all", "instagram", "youtube"];
 const nicheOptions = ["all", "Fitness", "Fashion", "Beauty", "Food", "Travel", "Tech", "Gaming", "Lifestyle", "Education"];
 const riskOptions = ["all", "low", "medium", "high"];
 
@@ -134,7 +134,6 @@ function SearchContent() {
                     >
                         <option value="instagram">Instagram</option>
                         <option value="youtube">YouTube</option>
-                        <option value="tiktok">TikTok</option>
                     </select>
                     <input
                         type="text"

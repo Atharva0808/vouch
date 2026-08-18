@@ -481,7 +481,7 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
     bot_a, bot_b = profile_a.get("bot_percentage", 0), profile_b.get("bot_percentage", 0)
 
     # Platform benchmark multipliers for fair cross-platform comparison
-    benchmarks = {"youtube": 3.0, "instagram": 2.2, "tiktok": 5.0, "facebook": 1.5}
+    benchmarks = {"youtube": 3.0, "instagram": 2.2}
     norm_er_a = er_a / benchmarks.get(profile_a.get("platform", "").lower(), 2.5)
     norm_er_b = er_b / benchmarks.get(profile_b.get("platform", "").lower(), 2.5)
 

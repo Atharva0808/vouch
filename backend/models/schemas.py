@@ -9,7 +9,6 @@ from enum import Enum
 
 class Platform(str, Enum):
     INSTAGRAM = "instagram"
-    TIKTOK = "tiktok"
     YOUTUBE = "youtube"
 
 
@@ -192,53 +191,4 @@ class SocialFetchResponse(BaseModel):
 class CombinedDownloadRequest(BaseModel):
     report_ids: List[str] = Field(..., min_length=1, max_length=20)
 
-
-# ======== Campaigns ========
-class CampaignCreateRequest(BaseModel):
-    name: str
-    brand_name: str
-    budget: float = 0.0
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    creator_ids: List[str] = []
-    creator_fees: Optional[dict] = {}
-
-
-class CampaignCreatorItem(BaseModel):
-    id: str
-    influencer_id: str
-    name: str
-    handle: str
-    platform: str
-    avatar_url: Optional[str] = ""
-    followers: int = 0
-    agreed_fee: float = 0.0
-    actual_impressions: int = 0
-    conversions: int = 0
-    sales_generated: float = 0.0
-    status: str = "Assigned"
-
-
-class CampaignSummary(BaseModel):
-    id: str
-    name: str
-    brand_name: str
-    budget: float
-    status: str
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-    created_at: Optional[str] = None
-    total_spend: float = 0.0
-    total_reach: int = 0
-    total_impressions: int = 0
-    total_conversions: int = 0
-    total_sales: float = 0.0
-    overall_roi: float = 0.0
-    conversion_rate: float = 0.0
-    creators_count: int = 0
-
-
-class CampaignDetailResponse(BaseModel):
-    campaign: CampaignSummary
-    creators: List[CampaignCreatorItem] = []
 
