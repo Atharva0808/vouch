@@ -400,7 +400,14 @@ async def create_campaign(user_id: str, data: dict) -> dict:
     # Clean nulls
     c_data = {k: v for k, v in c_data.items() if v is not None}
     
-    res = sb.table("campaigns").insert(c_data).execute()
+    try:
+        res = sb.table("campaigns").insert(c_data).execute()
+    except Exception as err:
+        err_str = str(err)
+        if "PGRST205" in err_str or "public.campaigns" in err_str:
+            raise Exception("Supabase Database Setup Required: Table 'campaigns' does not exist yet. Please run the SQL schema script in your Supabase SQL Editor.")
+        raise err
+
     if not res.data:
         raise Exception("Failed to create campaign record")
     
@@ -451,7 +458,14 @@ async def create_campaign(user_id: str, data: dict) -> dict:
 async def get_user_campaigns(user_id: str) -> list[dict]:
     """Get all campaigns for a user with aggregated metric calculations"""
     sb = get_supabase()
-    res = sb.table("campaigns").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    try:
+        res = sb.table("campaigns").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    except Exception as err:
+        err_str = str(err)
+        if "PGRST205" in err_str or "public.campaigns" in err_str:
+            return []
+        raise err
+
     campaigns = res.data or []
     
     result = []
