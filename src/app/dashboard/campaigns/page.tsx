@@ -391,7 +391,9 @@ export default function CampaignTrackerPage() {
                                                 Campaign Reach
                                             </span>
                                             <div className="text-2xl font-black text-neo-black mt-1">
-                                                {(activeCampaignDetail.campaign.total_reach / 1000).toFixed(0)}K
+                                                {activeCampaignDetail.campaign.total_reach >= 1000000
+                                                    ? `${(activeCampaignDetail.campaign.total_reach / 1000000).toFixed(1)}M`
+                                                    : `${(activeCampaignDetail.campaign.total_reach / 1000).toFixed(0)}K`}
                                             </div>
                                             <span className="text-[10px] font-bold text-neo-black/50">Combined Audience</span>
                                         </div>

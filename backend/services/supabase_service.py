@@ -426,16 +426,22 @@ async def create_campaign(user_id: str, data: dict) -> dict:
         c_creators = []
         for inf in creators_found:
             inf_id = inf["id"]
+            f = inf.get("followers", 100000)
             fee = float(creator_fees.get(inf_id, 0.0))
             if fee <= 0:
-                f = inf.get("followers", 0)
-                fee = 15000.0 if f < 100000 else 65000.0 if f < 1000000 else 250000.0
+                fee = 25000.0 if f < 100000 else 75000.0 if f < 1000000 else 250000.0 if f < 10000000 else 500000.0
             
-            f = inf.get("followers", 100000)
-            target_imp = max(int(f * 0.4), 25000)
-            act_imp = max(int(f * 0.38), 22000)
-            conv = max(int(act_imp * 0.018), 350)
-            sales = conv * 1250.0  # Avg Order Value ₹1250
+            # Industry standard view rates (3.8% for mega, 7% for macro, 12% for micro)
+            view_rate = 0.038 if f >= 10000000 else 0.07 if f >= 1000000 else 0.12
+            act_imp = max(int(f * view_rate), 15000)
+            target_imp = int(act_imp * 1.2)
+            
+            # Realistic conversion rate (~0.14% of impressions)
+            conv = max(int(act_imp * 0.0014), 20)
+            
+            # Realistic 3.2x Campaign ROI multiplier
+            roi_multiplier = 3.2 if f >= 1000000 else 3.6
+            sales = round(fee * roi_multiplier, 2)
             
             c_creators.append({
                 "campaign_id": campaign_id,
@@ -474,11 +480,32 @@ async def get_user_campaigns(user_id: str) -> list[dict]:
         cc_res = sb.table("campaign_creators").select("*, influencers(name, handle, platform, avatar_url, followers)").eq("campaign_id", cid).execute()
         c_creators = cc_res.data or []
         
-        total_spend = sum(float(item.get("agreed_fee", 0)) for item in c_creators)
-        total_reach = sum(int((item.get("influencers") or {}).get("followers", 0) or 0) for item in c_creators)
-        total_impressions = sum(int(item.get("actual_impressions", 0) or 0) for item in c_creators)
-        total_conversions = sum(int(item.get("conversions", 0) or 0) for item in c_creators)
-        total_sales = sum(float(item.get("sales_generated", 0) or 0) for item in c_creators)
+        total_spend = 0.0
+        total_reach = 0
+        total_impressions = 0
+        total_conversions = 0
+        total_sales = 0.0
+        
+        for item in c_creators:
+            inf = item.get("influencers") or {}
+            f = int(inf.get("followers", 0) or 0)
+            fee = float(item.get("agreed_fee", 0) or 0)
+            act_imp = int(item.get("actual_impressions", 0) or 0)
+            conv = int(item.get("conversions", 0) or 0)
+            sales = float(item.get("sales_generated", 0) or 0)
+            
+            # Sanitize legacy 3000x multiplier numbers if present in DB
+            if fee > 0 and (sales / fee) > 10.0:
+                sales = round(fee * 3.2, 2)
+                view_rate = 0.038 if f >= 10000000 else 0.07 if f >= 1000000 else 0.12
+                act_imp = max(int(f * view_rate), 15000)
+                conv = max(int(act_imp * 0.0014), 20)
+
+            total_spend += fee
+            total_reach += f
+            total_impressions += act_imp
+            total_conversions += conv
+            total_sales += sales
         
         roi = round(total_sales / total_spend, 1) if total_spend > 0 else 0.0
         conv_rate = round((total_conversions / total_impressions) * 100, 2) if total_impressions > 0 else 0.0
@@ -519,6 +546,19 @@ async def get_campaign_detail(campaign_id: str, user_id: str) -> dict | None:
     creators_list = []
     for item in c_creators:
         inf = item.get("influencers") or {}
+        f = int(inf.get("followers", 0) or 0)
+        fee = float(item.get("agreed_fee", 0) or 0)
+        act_imp = int(item.get("actual_impressions", 0) or 0)
+        conv = int(item.get("conversions", 0) or 0)
+        sales = float(item.get("sales_generated", 0) or 0)
+        
+        # Sanitize legacy 3000x multiplier numbers if present in DB
+        if fee > 0 and (sales / fee) > 10.0:
+            sales = round(fee * 3.2, 2)
+            view_rate = 0.038 if f >= 10000000 else 0.07 if f >= 1000000 else 0.12
+            act_imp = max(int(f * view_rate), 15000)
+            conv = max(int(act_imp * 0.0014), 20)
+
         creators_list.append({
             "id": item["id"],
             "influencer_id": item["influencer_id"],
@@ -526,11 +566,11 @@ async def get_campaign_detail(campaign_id: str, user_id: str) -> dict | None:
             "handle": inf.get("handle") or "",
             "platform": inf.get("platform") or "instagram",
             "avatar_url": inf.get("avatar_url") or "",
-            "followers": int(inf.get("followers") or 0),
-            "agreed_fee": float(item.get("agreed_fee", 0)),
-            "actual_impressions": int(item.get("actual_impressions", 0)),
-            "conversions": int(item.get("conversions", 0)),
-            "sales_generated": float(item.get("sales_generated", 0)),
+            "followers": f,
+            "agreed_fee": fee,
+            "actual_impressions": act_imp,
+            "conversions": conv,
+            "sales_generated": sales,
             "status": item.get("status", "Assigned")
         })
         
