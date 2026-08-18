@@ -242,3 +242,49 @@ class CampaignDetailResponse(BaseModel):
     campaign: CampaignSummary
     creators: List[CampaignCreatorItem] = []
 
+
+# ======== AI Creator Recommendation Engine ========
+class RecommendationRequest(BaseModel):
+    category: str  # e.g. "Tech", "Fitness", "Beauty", "Fashion", "Gaming"
+    audience_age: str = "18-24"  # "13-17", "18-24", "25-34", "35-50"
+    budget: float = 100000.0
+    campaign_goal: str = "maximize_roi"  # "maximize_roi", "high_engagement", "brand_safety", "maximum_reach"
+    platform: Optional[str] = "all"  # "all", "instagram", "youtube"
+
+
+class ScoreBreakdown(BaseModel):
+    niche_fit: float
+    age_fit: float
+    roi_score: float
+    safety_score: float
+    budget_fit: float
+
+
+class ScoredCreator(BaseModel):
+    id: str
+    name: str
+    handle: str
+    platform: str
+    avatar_url: Optional[str] = ""
+    followers: int = 0
+    engagement_rate: float = 0.0
+    risk_level: str = "low"
+    predicted_roi: float = 3.2
+    estimated_fee: float = 25000.0
+    composite_score: float = 85.0
+    score_breakdown: ScoreBreakdown
+    recommendation_reasoning: str
+    rank: int = 1
+    badge: str = "Top Match"
+
+
+class RecommendationResponse(BaseModel):
+    category: str
+    audience_age: str
+    budget: float
+    campaign_goal: str
+    weights_used: dict
+    top_creators: List[ScoredCreator] = []
+    generated_at: str
+
+
