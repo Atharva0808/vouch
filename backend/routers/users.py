@@ -11,6 +11,20 @@ class UserProfileUpdate(BaseModel):
     email: str | None = None
     company: str | None = None
     role: str | None = None
+    account_type: str | None = None
+    onboarding_completed: bool | None = None
+    onboarding_data: dict | None = None
+    business_name: str | None = None
+    category: str | None = None
+    location_area: str | None = None
+    city: str | None = None
+    target_age: list[str] | None = None
+    interests: list[str] | None = None
+    collaboration_type: str | None = None
+    deliverables: list[str] | None = None
+    social_handle: str | None = None
+    primary_platform: str | None = None
+    budget_range: str | None = None
     notifications: dict | None = None
 
 SETTINGS_FILE = "settings_store.json"
@@ -62,7 +76,13 @@ async def update_profile(user_id: str, profile: UserProfileUpdate, x_user_id: st
     data = profile.dict(exclude_unset=True)
     
     # Map fields to database payload
-    db_fields = ["id", "email", "full_name", "company", "role", "notifications"]
+    db_fields = [
+        "id", "email", "full_name", "company", "role", "notifications",
+        "account_type", "onboarding_completed", "onboarding_data",
+        "business_name", "category", "location_area", "city",
+        "target_age", "interests", "collaboration_type", "deliverables",
+        "social_handle", "primary_platform", "budget_range"
+    ]
     db_data = {k: v for k, v in data.items() if k in db_fields}
     db_data["id"] = user_id
     
@@ -70,12 +90,44 @@ async def update_profile(user_id: str, profile: UserProfileUpdate, x_user_id: st
     updated = {}
     try:
         updated = await db.upsert_user_profile(db_data)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error updating user profile in db: {e}")
     
     # Also save to local settings store for fallback
     saved_local = save_local_settings(user_id, data)
     
     merged = {**saved_local, **updated}
     return merged
+
+@router.post("/{user_id}/onboarding")
+async def save_onboarding(user_id: str, payload: dict, x_user_id: str | None = Header(None)):
+    if not x_user_id or x_user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Ensure onboarding_completed is true
+    payload["onboarding_completed"] = True
+    payload["id"] = user_id
+    
+    try:
+        updated = await db.upsert_user_profile(payload)
+    except Exception as e:
+        print(f"Error saving onboarding in db: {e}")
+        updated = {}
+    
+    saved_local = save_local_settings(user_id, payload)
+    
+    # Log activity feed event
+    try:
+        acc_type = payload.get("account_type", "user").capitalize()
+        await db.log_activity(
+            user_id=user_id,
+            action=f"{acc_type} Onboarding Complete",
+            details=f"Configured matching profile for {payload.get('business_name') or payload.get('social_handle') or 'your account'}",
+            icon="user-plus"
+        )
+    except Exception:
+        pass
+        
+    return {**saved_local, **updated, "status": "success"}
+
 

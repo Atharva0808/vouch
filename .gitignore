@@ -49,4 +49,5 @@ __pycache__/
 # logs & local state
 *.log
 settings_store.json
-
+myskills/
+/myskills

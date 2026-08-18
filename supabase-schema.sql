@@ -88,12 +88,26 @@ CREATE TABLE IF NOT EXISTS reports (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. User Profiles (SaaS tiers & limits)
+-- 6. User Profiles (SaaS tiers, onboarding & classification)
 CREATE TABLE IF NOT EXISTS user_profiles (
     id UUID PRIMARY KEY, -- Matches auth.users.id
     email TEXT,
     full_name TEXT,
     tier TEXT DEFAULT 'free', -- free, pro, agency
+    account_type TEXT DEFAULT 'brand', -- brand, influencer
+    onboarding_completed BOOLEAN DEFAULT FALSE,
+    onboarding_data JSONB DEFAULT '{}'::jsonb,
+    business_name TEXT,
+    category TEXT,
+    location_area TEXT,
+    city TEXT,
+    target_age TEXT[] DEFAULT '{}',
+    interests TEXT[] DEFAULT '{}',
+    collaboration_type TEXT DEFAULT 'both', -- barter, paid, both
+    deliverables TEXT[] DEFAULT '{}',
+    social_handle TEXT,
+    primary_platform TEXT DEFAULT 'instagram',
+    budget_range TEXT,
     searches_used INTEGER DEFAULT 0,
     searches_limit INTEGER DEFAULT 3,
     stripe_customer_id TEXT,
