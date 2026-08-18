@@ -36,6 +36,24 @@ export async function GET(request: NextRequest) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
+            if (next === '/dashboard') {
+                try {
+                    const { data: { user } } = await supabase.auth.getUser()
+                    if (user) {
+                        const { data: profile } = await supabase
+                            .from('user_profiles')
+                            .select('onboarding_completed')
+                            .eq('id', user.id)
+                            .maybeSingle()
+
+                        if (!profile || profile.onboarding_completed !== true) {
+                            return NextResponse.redirect(`${origin}/onboarding`)
+                        }
+                    }
+                } catch {
+                    // fallback to dashboard
+                }
+            }
             return supabaseResponse
         }
     }

@@ -24,17 +24,21 @@ export default function SignupPage() {
         setLoading(true);
         setError("");
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: { full_name: name },
+                emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
             },
         });
 
         if (error) {
             setError(error.message);
             setLoading(false);
+        } else if (data?.session) {
+            // Logged in immediately without email confirmation
+            router.push("/onboarding");
         } else {
             setSuccess(true);
             setLoading(false);
@@ -45,7 +49,7 @@ export default function SignupPage() {
         setLoading(true);
         const { error } = await supabase.auth.signInWithOAuth({
             provider: "google",
-            options: { redirectTo: `${window.location.origin}/auth/callback` },
+            options: { redirectTo: `${window.location.origin}/auth/callback?next=/onboarding` },
         });
         if (error) {
             setError(error.message);

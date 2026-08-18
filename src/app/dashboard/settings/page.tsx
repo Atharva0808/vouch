@@ -196,6 +196,64 @@ export default function SettingsPage() {
                     </div>
                 </motion.div>
 
+                {/* Account Role & Marketplace Profile */}
+                <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.05 }}
+                    className="neo-card bg-neo-white rounded-3xl p-6 sm:p-8 space-y-6"
+                >
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-neo-yellow neo-border flex items-center justify-center text-neo-black font-black">
+                                🎯
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-bold">Marketplace & Matching Profile</h2>
+                                <p className="text-xs text-neo-black/60 font-medium">Your classification for hyper-local creator and brand recommendations</p>
+                            </div>
+                        </div>
+
+                        <span className={`text-xs font-black uppercase px-3 py-1.5 rounded-full neo-border ${profile?.account_type === "creator" || profile?.account_type === "influencer" ? "bg-neo-pink text-white" : "bg-neo-yellow text-neo-black"}`}>
+                            {profile?.account_type === "creator" || profile?.account_type === "influencer" ? "🌟 Creator Profile" : "🏢 Brand Profile"}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                        <div className="p-4 rounded-2xl bg-neo-black/5 neo-border">
+                            <div className="text-[10px] font-black uppercase text-neo-black/40">Category / Niche</div>
+                            <div className="text-sm font-bold text-neo-black mt-1 capitalize">
+                                {profile?.category?.replace(/_/g, " ") || profile?.company || "Not specified"}
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-neo-black/5 neo-border">
+                            <div className="text-[10px] font-black uppercase text-neo-black/40">Location & Area</div>
+                            <div className="text-sm font-bold text-neo-black mt-1">
+                                {profile?.location_area ? `${profile.location_area}, ${profile.city || ""}` : (profile?.city || "Kharghar, Navi Mumbai")}
+                            </div>
+                        </div>
+                        <div className="p-4 rounded-2xl bg-neo-black/5 neo-border">
+                            <div className="text-[10px] font-black uppercase text-neo-black/40">Collaboration Type</div>
+                            <div className="text-sm font-bold text-neo-black mt-1 capitalize">
+                                {profile?.collaboration_type || "Barter & Paid"}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between border-t-2 border-neo-black/10">
+                        <p className="text-xs text-neo-black/60 font-medium">
+                            Want to change your role or update your matching preferences?
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => router.push("/onboarding")}
+                            className="neo-btn px-4 py-2 rounded-xl text-xs bg-neo-yellow text-neo-black font-bold"
+                        >
+                            Retake Questionnaire
+                        </button>
+                    </div>
+                </motion.div>
+
                 {/* Notifications */}
                 <motion.div
                     initial={{ y: 20, opacity: 0 }}

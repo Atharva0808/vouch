@@ -459,7 +459,39 @@ export async function getActivityFeed(limit = 20) {
     return apiFetch<{ activities: Activity[] }>(`/api/ai/activity?limit=${limit}`);
 }
 
-// ======== User Profile / Settings ========
+// ======== User Profile / Settings & Onboarding ========
+
+export type AccountType = "brand" | "influencer";
+
+export interface BrandOnboardingData {
+    account_type: "brand";
+    business_name: string;
+    category: string;
+    location_area: string;
+    city: string;
+    target_age: string[];
+    interests: string[];
+    collaboration_type: "barter" | "paid" | "both";
+    deliverables: string[];
+    budget_range?: string;
+}
+
+export interface InfluencerOnboardingData {
+    account_type: "influencer";
+    social_handle: string;
+    primary_platform: string;
+    profile_url?: string;
+    location_area: string;
+    city: string;
+    category: string; // core niche
+    collaboration_type: "barter" | "paid" | "both";
+    deliverables: string[];
+    rates_range?: string;
+    bio?: string;
+    followers?: number;
+    engagement_rate?: number;
+    avatar_url?: string;
+}
 
 export interface UserProfile {
     id: string;
@@ -467,6 +499,20 @@ export interface UserProfile {
     full_name?: string;
     company?: string;
     role?: string;
+    account_type?: AccountType;
+    onboarding_completed?: boolean;
+    onboarding_data?: BrandOnboardingData | InfluencerOnboardingData | any;
+    business_name?: string;
+    category?: string;
+    location_area?: string;
+    city?: string;
+    target_age?: string[];
+    interests?: string[];
+    collaboration_type?: string;
+    deliverables?: string[];
+    social_handle?: string;
+    primary_platform?: string;
+    budget_range?: string;
     notifications?: any;
     tier?: string;
     searches_used?: number;
@@ -481,6 +527,14 @@ export async function getUserProfile(userId: string) {
 /** Update user profile */
 export async function updateUserProfile(userId: string, data: Partial<UserProfile>) {
     return apiFetch<UserProfile>(`/api/users/${userId}`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+}
+
+/** Submit completed onboarding questionnaire */
+export async function submitOnboarding(userId: string, data: Partial<UserProfile>) {
+    return apiFetch<UserProfile>(`/api/users/${userId}/onboarding`, {
         method: "POST",
         body: JSON.stringify(data),
     });

@@ -30,15 +30,38 @@ export default function LoginPage() {
         setLoading(true);
         setError("");
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
             setError(error.message);
             setLoading(false);
         } else {
             const query = new URLSearchParams(window.location.search);
-            const next = query.get("next") || "/dashboard";
-            router.push(next);
+            const explicitNext = query.get("next");
+            if (explicitNext) {
+                router.push(explicitNext);
+                return;
+            }
+
+            // Check onboarding status
+            try {
+                if (data.user) {
+                    const { data: profile } = await supabase
+                        .from("user_profiles")
+                        .select("onboarding_completed")
+                        .eq("id", data.user.id)
+                        .maybeSingle();
+
+                    if (!profile || profile.onboarding_completed !== true) {
+                        router.push("/onboarding");
+                        return;
+                    }
+                }
+            } catch {
+                // fallback
+            }
+
+            router.push("/dashboard");
         }
     };
 
