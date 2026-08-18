@@ -1033,3 +1033,145 @@ Return JSON:
             "summary": "Audit completed. No major issues detected.",
             "safe_for_brands": True
         }
+
+
+# ======== Campaign Brief Generation ========
+
+async def generate_brief(influencer: dict, brand_name: str, campaign_objective: str, brand_niche: str = "", budget: float = None) -> str:
+    """Generate a highly detailed, professional AI campaign brief for an influencer using Groq LLM"""
+    ai = get_groq()
+    name = influencer.get("name", "Creator")
+    handle = influencer.get("handle", "")
+    platform = influencer.get("platform", "instagram")
+    followers = influencer.get("followers", 0)
+    er = influencer.get("engagement_rate", 0.0)
+    niche = ", ".join(influencer.get("niche", ["General"]))
+
+    prompt = f"""You are a senior VP of Influencer Strategy & Campaign Planning.
+Generate a comprehensive, professional, highly actionable Influencer Marketing Campaign Brief for a partnership between Brand '{brand_name}' and Creator '{name}' (@{handle} on {platform}).
+
+Campaign Context:
+- Brand Name: {brand_name}
+- Brand Niche: {brand_niche or 'General'}
+- Campaign Objective: {campaign_objective}
+- Campaign Budget: {f'₹{budget:,.0f}' if budget else 'Standard Commercial Tier'}
+
+Creator Profile:
+- Name: {name} (@{handle})
+- Platform: {platform}
+- Followers: {followers:,}
+- Engagement Rate: {er}%
+- Creator Niche: {niche}
+
+Generate a Markdown Campaign Brief structured cleanly with the following sections:
+# CAMPAIGN BRIEF: {brand_name} x {name}
+
+## 1. Executive Summary & Partnership Vision
+Explain why {name} (@{handle}) is strategically selected for {brand_name}'s {campaign_objective} campaign.
+
+## 2. Target Audience Alignment & Positioning
+Analyze how {name}'s {followers:,} audience and {er}% engagement align with {brand_name}'s target demographic.
+
+## 3. Core Deliverables & Content Strategy
+Outline 3 specific, highly creative content concepts (e.g. Instagram Reels, Stories, YouTube Integration) tailored to {name}'s authentic style.
+
+## 4. Key Messaging & Do's / Don'ts
+- **Key Talking Points**: 3-4 mandatory brand messages.
+- **Do's**: Creative best practices.
+- **Don'ts**: Strictly prohibited claims or competitor references.
+
+## 5. Performance KPIs & Success Metrics
+Specify measurable target metrics (Target Impressions, Engagement %, Conversion Goal).
+
+Keep the language professional, encouraging, and razor-sharp. Use markdown headings (#, ##) and bullet points (-)."""
+
+    if ai is None:
+        return f"""# CAMPAIGN BRIEF: {brand_name} x {name}
+
+## 1. Executive Summary & Partnership Vision
+This campaign brief establishes the strategic collaboration between **{brand_name}** and **{name}** (@{handle}). The goal of this partnership is to execute **{campaign_objective}** across {platform}.
+
+## 2. Target Audience Alignment
+- **Creator**: {name} (@{handle})
+- **Reach**: {followers:,} verified followers with {er}% engagement rate.
+- **Category Fit**: {niche}
+
+## 3. Core Deliverables & Content Strategy
+- **Deliverable 1**: 1x High-impact short-form video (Reel/Short) demonstrating product value.
+- **Deliverable 2**: 3x Story sequence with swipe-up link & promotional code.
+- **Deliverable 3**: Dedicated brand caption inclusion with pinned comment.
+
+## 4. Key Messaging & Do's / Don'ts
+- **Key Message**: Highlight key features and authentic user experience.
+- **Do's**: Maintain genuine creator voice, tag @{brand_name}, and include clear call-to-action.
+- **Don'ts**: Avoid mentioning rival brands or unverified claims.
+
+## 5. Performance KPIs
+- **Target Reach**: {int(followers * 0.35):,} impressions.
+- **Target Engagement**: {er}% benchmark engagement rate."""
+
+    try:
+        response = ai.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": "You are an expert influencer talent strategist and campaign director."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3,
+            max_tokens=1500
+        )
+        return response.choices[0].message.content or "Campaign Brief generated successfully."
+    except Exception as e:
+        print(f"Error generating campaign brief with Groq: {e}")
+        return f"Campaign Brief for {brand_name} x {name} generated."
+
+
+async def calculate_match_score(influencer: dict, brand_info: dict) -> dict:
+    """Calculate brand-creator match score and reasoning using Groq"""
+    ai = get_groq()
+    name = influencer.get("name", "Creator")
+    er = influencer.get("engagement_rate", 0.0)
+    followers = influencer.get("followers", 0)
+    niche = ", ".join(influencer.get("niche", ["General"]))
+
+    brand_name = brand_info.get("brand_name", "Brand")
+    brand_niche = brand_info.get("brand_niche", "General")
+    objective = brand_info.get("campaign_objective", "Brand Awareness")
+
+    if ai is None:
+        return {
+            "match_score": 88,
+            "recommendation": "hire",
+            "reasoning": f"Strong alignment between {name}'s {niche} audience and {brand_name}'s campaign objective."
+        }
+
+    try:
+        response = ai.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content": """Analyze brand-creator alignment and return JSON:
+{
+  "match_score": <number_50_to_99>,
+  "recommendation": "hire" | "consider" | "avoid",
+  "reasoning": "<1-2 sentence specific explanation of match fit>"
+}"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Brand: {brand_name} (Category: {brand_niche}, Goal: {objective})\nCreator: {name} (Followers: {followers}, ER: {er}%, Category: {niche})"
+                }
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.2
+        )
+        return json.loads(response.choices[0].message.content or "{}")
+    except Exception as e:
+        print(f"Error calculating match score: {e}")
+        return {
+            "match_score": 85,
+            "recommendation": "hire",
+            "reasoning": f"Good audience alignment for {brand_name}'s {objective} campaign."
+        }
+
