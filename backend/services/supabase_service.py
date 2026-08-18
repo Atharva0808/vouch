@@ -461,7 +461,7 @@ async def get_user_campaigns(user_id: str) -> list[dict]:
         c_creators = cc_res.data or []
         
         total_spend = sum(float(item.get("agreed_fee", 0)) for item in c_creators)
-        total_reach = sum(int(item.get("influencers", {}).get("followers", 0) or 0) for item in c_creators)
+        total_reach = sum(int((item.get("influencers") or {}).get("followers", 0) or 0) for item in c_creators)
         total_impressions = sum(int(item.get("actual_impressions", 0) or 0) for item in c_creators)
         total_conversions = sum(int(item.get("conversions", 0) or 0) for item in c_creators)
         total_sales = sum(float(item.get("sales_generated", 0) or 0) for item in c_creators)
