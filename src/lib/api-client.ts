@@ -461,7 +461,7 @@ export async function getActivityFeed(limit = 20) {
 
 // ======== User Profile / Settings & Onboarding ========
 
-export type AccountType = "brand" | "influencer";
+export type AccountType = "brand" | "influencer" | "creator";
 
 export interface BrandOnboardingData {
     account_type: "brand";
