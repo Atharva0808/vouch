@@ -324,7 +324,7 @@ export default function OnboardingPage() {
 
                 <AnimatePresence mode="wait">
                     {/* ================= STEP 0: Role Segregation ================= */}
-                    {step === 0 && (
+                    {step === 0 && !isCalibrating && (
                         <motion.div
                             key="step-0-segregation"
                             initial={{ opacity: 0, y: 20 }}
@@ -425,7 +425,7 @@ export default function OnboardingPage() {
                     {/* ================= BRAND QUESTIONS ================= */}
 
                     {/* Brand Question 1: Business Name & Category */}
-                    {accountType === "brand" && step === 1 && (
+                    {accountType === "brand" && step === 1 && !isCalibrating && (
                         <motion.div
                             key="brand-step-1"
                             initial={{ opacity: 0, x: 20 }}
@@ -518,7 +518,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Brand Question 2: Business Location */}
-                    {accountType === "brand" && step === 2 && (
+                    {accountType === "brand" && step === 2 && !isCalibrating && (
                         <motion.div
                             key="brand-step-2"
                             initial={{ opacity: 0, x: 20 }}
@@ -605,7 +605,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Brand Question 3: Ideal Customer (Target Audience) */}
-                    {accountType === "brand" && step === 3 && (
+                    {accountType === "brand" && step === 3 && !isCalibrating && (
                         <motion.div
                             key="brand-step-3"
                             initial={{ opacity: 0, x: 20 }}
@@ -699,7 +699,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Brand Question 4: Collaboration Type, Deliverables & Budget */}
-                    {accountType === "brand" && step === 4 && (
+                    {accountType === "brand" && step === 4 && !isCalibrating && (
                         <motion.div
                             key="brand-step-4"
                             initial={{ opacity: 0, x: 20 }}
@@ -835,7 +835,7 @@ export default function OnboardingPage() {
                     {/* ================= INFLUENCER QUESTIONS ================= */}
 
                     {/* Influencer Question 1: Handle & Primary Platform */}
-                    {accountType === "influencer" && step === 1 && (
+                    {accountType === "influencer" && step === 1 && !isCalibrating && (
                         <motion.div
                             key="influencer-step-1"
                             initial={{ opacity: 0, x: 20 }}
@@ -860,11 +860,10 @@ export default function OnboardingPage() {
                                     <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
                                         Primary Platform
                                     </label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {[
                                             { id: "instagram", label: "Instagram", icon: Instagram, color: "bg-[#FF6B9D]" },
                                             { id: "youtube", label: "YouTube", icon: Youtube, color: "bg-[#FF6B6B]" },
-                                            { id: "tiktok", label: "TikTok", icon: Video, color: "bg-[#4ECDC4]" },
                                             { id: "twitter", label: "X / Twitter", icon: Sparkles, color: "bg-[#A855F7]" },
                                         ].map((p) => {
                                             const Icon = p.icon;
@@ -948,7 +947,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Influencer Question 2: Location & Coverage Area */}
-                    {accountType === "influencer" && step === 2 && (
+                    {accountType === "influencer" && step === 2 && !isCalibrating && (
                         <motion.div
                             key="influencer-step-2"
                             initial={{ opacity: 0, x: 20 }}
@@ -1035,7 +1034,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Influencer Question 3: Core Niche */}
-                    {accountType === "influencer" && step === 3 && (
+                    {accountType === "influencer" && step === 3 && !isCalibrating && (
                         <motion.div
                             key="influencer-step-3"
                             initial={{ opacity: 0, x: 20 }}
@@ -1103,7 +1102,7 @@ export default function OnboardingPage() {
                     )}
 
                     {/* Influencer Question 4: Collaboration Preferences & [Connect with Vouch AI] */}
-                    {accountType === "influencer" && step === 4 && (
+                    {accountType === "influencer" && step === 4 && !isCalibrating && (
                         <motion.div
                             key="influencer-step-4"
                             initial={{ opacity: 0, x: 20 }}
