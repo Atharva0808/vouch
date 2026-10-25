@@ -36,11 +36,20 @@ def get_supabase() -> Client:
 
 # ======== Influencers ========
 
+VALID_INFLUENCER_COLUMNS = {
+    'id', 'handle', 'platform', 'name', 'avatar_url', 'followers', 'following',
+    'posts', 'engagement_rate', 'avg_likes', 'avg_comments', 'bio', 'verified',
+    'location', 'niche', 'match_score', 'risk_level', 'external_url',
+    'last_analyzed_at', 'created_at', 'bot_percentage', 'predicted_roi',
+    'recent_posts', 'recommendation', 'updated_at', 'brand_safety_score', 'user_id'
+}
+
 async def upsert_influencer(data: dict, user_id: str) -> dict:
     sb = get_supabase()
     # Explicitly set user_id for isolation
     data["user_id"] = user_id
-    result = sb.table("influencers").upsert(data, on_conflict="handle,platform,user_id").execute()
+    clean_data = {k: v for k, v in data.items() if k in VALID_INFLUENCER_COLUMNS}
+    result = sb.table("influencers").upsert(clean_data, on_conflict="handle,platform,user_id").execute()
     return result.data[0] if result.data else {}
 
 

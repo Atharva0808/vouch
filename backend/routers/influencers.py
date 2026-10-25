@@ -114,13 +114,6 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
             avg_comments = max(1, int(avg_likes * 0.05))
             profile["avg_comments"] = avg_comments
 
-        if not profile.get("suggested_price") or profile.get("suggested_price") <= 0:
-            if followers >= 10000000: base_price = int(followers * 0.12)
-            elif followers >= 1000000: base_price = int(followers * 0.18)
-            elif followers >= 100000: base_price = int(followers * 0.22)
-            else: base_price = max(3000, int(followers * 0.25))
-            profile["suggested_price"] = base_price
-
         following = profile.get("following", 0) or 0
         platform_name = (profile.get("platform") or "instagram").lower()
         
