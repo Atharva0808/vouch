@@ -46,7 +46,11 @@ export async function GET(request: NextRequest) {
                             .eq('id', user.id)
                             .maybeSingle()
 
-                        if (!profile || profile.onboarding_completed !== true) {
+                        const isCompleted =
+                            profile?.onboarding_completed === true ||
+                            user.user_metadata?.onboarding_completed === true;
+
+                        if (!isCompleted) {
                             return NextResponse.redirect(`${origin}/onboarding`)
                         }
                     }

@@ -52,7 +52,12 @@ export default function LoginPage() {
                         .eq("id", data.user.id)
                         .maybeSingle();
 
-                    if (!profile || profile.onboarding_completed !== true) {
+                    const isCompleted =
+                        profile?.onboarding_completed === true ||
+                        data.user.user_metadata?.onboarding_completed === true ||
+                        (typeof window !== "undefined" && localStorage.getItem("vouch_onboarding_completed") === "true");
+
+                    if (!isCompleted) {
                         router.push("/onboarding");
                         return;
                     }

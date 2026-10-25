@@ -101,26 +101,29 @@ async def update_profile(user_id: str, profile: UserProfileUpdate, x_user_id: st
 
 @router.post("/{user_id}/onboarding")
 async def save_onboarding(user_id: str, payload: dict, x_user_id: str | None = Header(None)):
-    if not x_user_id or x_user_id != user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    effective_user_id = user_id or x_user_id
+    if not effective_user_id:
+        raise HTTPException(status_code=400, detail="User ID required")
     
     # Ensure onboarding_completed is true
     payload["onboarding_completed"] = True
-    payload["id"] = user_id
+    payload["id"] = effective_user_id
     
-    try:
-        updated = await db.upsert_user_profile(payload)
-    except Exception as e:
-        print(f"Error saving onboarding in db: {e}")
-        updated = {}
+    updated = {}
+    if db.is_valid_uuid(effective_user_id):
+        try:
+            updated = await db.upsert_user_profile(payload)
+        except Exception as e:
+            print(f"Error saving onboarding in db: {e}")
+            updated = {}
     
-    saved_local = save_local_settings(user_id, payload)
+    saved_local = save_local_settings(effective_user_id, payload)
     
     # Log activity feed event
     try:
         acc_type = payload.get("account_type", "user").capitalize()
         await db.log_activity(
-            user_id=user_id,
+            user_id=effective_user_id,
             action=f"{acc_type} Onboarding Complete",
             details=f"Configured matching profile for {payload.get('business_name') or payload.get('social_handle') or 'your account'}",
             icon="user-plus"

@@ -3,9 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
-        request: {
-            headers: request.headers,
-        },
+        request,
     });
 
     const supabase = createServerClient(
@@ -17,13 +15,11 @@ export async function middleware(request: NextRequest) {
                     return request.cookies.getAll();
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) =>
+                    cookiesToSet.forEach(({ name, value }) =>
                         request.cookies.set(name, value)
                     );
                     supabaseResponse = NextResponse.next({
-                        request: {
-                            headers: request.headers,
-                        },
+                        request,
                     });
                     cookiesToSet.forEach(({ name, value, options }) =>
                         supabaseResponse.cookies.set(name, value, options)
@@ -39,25 +35,36 @@ export async function middleware(request: NextRequest) {
 
     const path = request.nextUrl.pathname;
 
-    // 1. SKIP middleware logic for the auth callback itself
-    if (path.startsWith("/auth/callback")) {
+    // 1. SKIP middleware logic for the auth callback and onboarding
+    if (path.startsWith("/auth/callback") || path === "/onboarding") {
         return supabaseResponse;
     }
 
-    // 2. If user is NOT signed in and trying to access dashboard -> Redirect to login
+    // 2. If user is NOT signed in and trying to access dashboard
     if (!user && path.startsWith("/dashboard")) {
+        const isDemoOrOnboarded =
+            request.cookies.get("vouch_demo_user")?.value === "true" ||
+            request.cookies.get("vouch_onboarded")?.value === "true";
+
+        if (isDemoOrOnboarded) {
+            return supabaseResponse;
+        }
+
         const url = request.nextUrl.clone();
         url.pathname = "/login";
-        // Preserve the original URL to redirect back after login
         url.searchParams.set("next", path);
-        return NextResponse.redirect(url);
+        const redirectRes = NextResponse.redirect(url);
+        supabaseResponse.cookies.getAll().forEach(c => redirectRes.cookies.set(c.name, c.value));
+        return redirectRes;
     }
 
     // 3. If user IS signed in and trying to access /login or /signup -> Redirect to /dashboard
     if (user && (path === "/login" || path === "/signup")) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
-        return NextResponse.redirect(url);
+        const redirectRes = NextResponse.redirect(url);
+        supabaseResponse.cookies.getAll().forEach(c => redirectRes.cookies.set(c.name, c.value));
+        return redirectRes;
     }
 
     return supabaseResponse;

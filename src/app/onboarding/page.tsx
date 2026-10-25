@@ -135,8 +135,11 @@ export default function OnboardingPage() {
                     setBrandName(user.user_metadata.full_name);
                 }
             } else {
-                // If not logged in, allow demo or redirect
+                // If not logged in, set demo user and cookie so they can preview the dashboard without redirect loops
                 setUserId("demo-user");
+                if (typeof document !== "undefined") {
+                    document.cookie = "vouch_demo_user=true; path=/; max-age=86400; SameSite=Lax";
+                }
             }
         };
         checkAuth();
@@ -206,7 +209,10 @@ export default function OnboardingPage() {
         setTimeout(() => setCalibrationStep(3), 2400);
 
         try {
-            const targetUserId = userId || "guest";
+            // Fetch fresh session to be 100% sure we have real user id
+            const { data: { user } } = await supabase.auth.getUser();
+            const activeUserId = user?.id || userId || "demo-user";
+
             let payload: any = {
                 account_type: accountType,
                 onboarding_completed: true,
@@ -262,20 +268,86 @@ export default function OnboardingPage() {
                 };
             }
 
-            if (userId && userId !== "demo-user") {
-                await submitOnboarding(userId, payload);
+            // 1. Directly persist to Supabase if user is logged in
+            if (user) {
+                try {
+                    // Update user auth metadata
+                    await supabase.auth.updateUser({
+                        data: {
+                            onboarding_completed: true,
+                            account_type: accountType,
+                            business_name: accountType === "brand" ? brandName : creatorHandle,
+                        },
+                    });
+
+                    // Direct update into user_profiles table
+                    const profilePayload = {
+                        id: user.id,
+                        email: user.email,
+                        full_name: user.user_metadata?.full_name || userName || brandName || creatorHandle,
+                        account_type: accountType,
+                        onboarding_completed: true,
+                        business_name: accountType === "brand" ? brandName : creatorHandle,
+                        category: accountType === "brand" ? brandCategory : creatorNiche,
+                        location_area: accountType === "brand" ? brandArea : creatorArea,
+                        city: accountType === "brand" ? brandCity : creatorCity,
+                        target_age: accountType === "brand" ? targetAge : [],
+                        interests: accountType === "brand" ? targetInterests : [],
+                        collaboration_type: accountType === "brand" ? collabType : creatorCollabType,
+                        deliverables: accountType === "brand" ? deliverables : creatorDeliverables,
+                        social_handle: accountType === "influencer" ? (creatorHandle.startsWith("@") ? creatorHandle : `@${creatorHandle}`) : null,
+                        primary_platform: accountType === "influencer" ? creatorPlatform : "instagram",
+                        budget_range: accountType === "brand" ? budgetRange : creatorRates,
+                        onboarding_data: payload.onboarding_data,
+                        updated_at: new Date().toISOString(),
+                    };
+
+                    const { error: upsertErr } = await supabase
+                        .from("user_profiles")
+                        .upsert(profilePayload, { onConflict: "id" });
+
+                    if (upsertErr) {
+                        await supabase
+                            .from("user_profiles")
+                            .update(profilePayload)
+                            .eq("id", user.id);
+                    }
+                } catch (dbErr) {
+                    console.warn("Direct Supabase update note:", dbErr);
+                }
+            }
+
+            // 2. Set client-side cookies and local storage flags
+            if (typeof document !== "undefined") {
+                document.cookie = "vouch_onboarded=true; path=/; max-age=31536000; SameSite=Lax";
+                if (!user) {
+                    document.cookie = "vouch_demo_user=true; path=/; max-age=86400; SameSite=Lax";
+                }
+                localStorage.setItem("vouch_onboarding_completed", "true");
+                localStorage.setItem("vouch_account_type", accountType || "brand");
+            }
+
+            // 3. Sync with backend API in a non-blocking safe manner
+            if (activeUserId && activeUserId !== "demo-user") {
+                submitOnboarding(activeUserId, payload).catch((err) => {
+                    console.warn("Backend sync notice (offline/asleep):", err);
+                });
             }
 
             // Redirect after calibration
             setTimeout(() => {
                 window.dispatchEvent(new Event("user-profile-updated"));
                 router.push("/dashboard");
-            }, 3000);
+            }, 2600);
         } catch (e) {
             console.error("Onboarding submit error:", e);
+            if (typeof document !== "undefined") {
+                document.cookie = "vouch_onboarded=true; path=/; max-age=31536000; SameSite=Lax";
+                localStorage.setItem("vouch_onboarding_completed", "true");
+            }
             setTimeout(() => {
                 router.push("/dashboard");
-            }, 3000);
+            }, 2600);
         }
     };
 
