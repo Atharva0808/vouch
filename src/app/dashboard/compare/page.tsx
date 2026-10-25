@@ -107,6 +107,17 @@ export default function ComparePage() {
                 </div>
             )}
 
+            {/* Empty State if < 2 influencers */}
+            {influencers.length < 2 && !loading && (
+                <div className="neo-card rounded-2xl p-10 bg-[var(--color-neo-white)] text-center">
+                    <ArrowLeftRight size={40} className="mx-auto mb-3 text-[var(--color-neo-black)]/20" />
+                    <p className="font-bold text-[var(--color-neo-black)]">At least 2 creators required for comparison</p>
+                    <p className="text-sm text-[var(--color-neo-black)]/50 mt-1">
+                        Use the Search page to fetch and analyze at least two creators to compare their engagement, reach, and authenticity metrics side-by-side.
+                    </p>
+                </div>
+            )}
+
             {idA && idB && idA === idB && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="neo-card rounded-2xl p-6 bg-[var(--color-neo-yellow)]/20 border-2 border-[var(--color-neo-yellow)] text-center">
                     <p className="font-bold text-[var(--color-neo-black)] text-sm">Please select two different influencers to generate a side-by-side comparison.</p>

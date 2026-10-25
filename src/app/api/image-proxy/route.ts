@@ -21,9 +21,8 @@ export async function GET(req: NextRequest) {
         });
 
         if (!imageResp.ok) {
-            // Instagram CDN URL expired or blocked -> Fallback to consistent real portrait
-            const hash = encodeURIComponent(url.slice(-25).replace(/[^a-zA-Z0-9]/g, ""));
-            return NextResponse.redirect(`https://i.pravatar.cc/300?u=${hash || "creator"}`);
+            // Instagram CDN URL expired or blocked -> Fallback to initials avatar
+            return NextResponse.redirect(`https://ui-avatars.com/api/?name=IG&size=300&background=FF6B9D&color=fff&bold=true&format=png`);
         }
 
         const contentType = imageResp.headers.get("content-type") || "image/jpeg";
@@ -37,7 +36,6 @@ export async function GET(req: NextRequest) {
             },
         });
     } catch {
-        const hash = encodeURIComponent(url.slice(-25).replace(/[^a-zA-Z0-9]/g, ""));
-        return NextResponse.redirect(`https://i.pravatar.cc/300?u=${hash || "creator"}`);
+        return NextResponse.redirect(`https://ui-avatars.com/api/?name=IG&size=300&background=FF6B9D&color=fff&bold=true&format=png`);
     }
 }

@@ -28,7 +28,8 @@ export default function AvatarImg({
     const textSize = size >= 96 ? "text-3xl" : size >= 64 ? "text-xl" : "text-base";
 
     const cleanHandle = (handle?.replace("@", "") || name || "creator").toLowerCase().replace(/[^a-z0-9]/g, "");
-    const fallbackUrl = `https://i.pravatar.cc/300?u=${cleanHandle || "creator"}`;
+    const initials = (name || cleanHandle || "?").split(" ").map(w => w[0]).join("+").toUpperCase().slice(0, 2);
+    const fallbackUrl = `https://ui-avatars.com/api/?name=${initials}&size=300&background=FF6B9D&color=fff&bold=true&format=png`;
     const initialImgUrl = src ? getProxiedUrl(src) : fallbackUrl;
 
     if (imageError && fallbackError) {

@@ -33,9 +33,53 @@ YOUTUBE_HOST = "youtube138.p.rapidapi.com"
 
 # ======== Instagram (via instagram120) ========
 
+async def _resolve_real_creator_photo(name: str, handle: str) -> str:
+    """Find real creator profile photo via Wikimedia / Wikipedia public encyclopedia API.
+    Returns the authentic photo URL if available, otherwise a clean branded initials avatar."""
+    clean_n = (name or "").strip()
+    clean_h = (handle or "").replace("@", "").replace(".", "").replace("_", "").lower().strip()
+    
+    headers = {"User-Agent": "InfluenceIQ/1.0 (contact@influenceiq.com)"}
+    
+    # Check if Wikipedia has a verified photo for this creator/personality
+    if clean_n:
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                sr = await client.get(
+                    "https://en.wikipedia.org/w/api.php",
+                    params={"action": "query", "format": "json", "list": "search", "srsearch": clean_n, "srlimit": "1"},
+                    headers=headers
+                )
+                if sr.status_code == 200:
+                    items = sr.json().get("query", {}).get("search", [])
+                    if items:
+                        title = items[0]["title"]
+                        clean_title = title.replace("_", "").replace(" ", "").lower()
+                        first_name = clean_n.split()[0].lower() if clean_n else ""
+                        
+                        # Strict match: title must contain the first name or handle to prevent false matches
+                        if first_name and (first_name in clean_title or clean_h in clean_title):
+                            page_slug = title.replace(" ", "_")
+                            pr = await client.get(
+                                f"https://en.wikipedia.org/api/rest_v1/page/summary/{page_slug}",
+                                headers=headers
+                            )
+                            if pr.status_code == 200:
+                                thumb = pr.json().get("thumbnail", {}).get("source")
+                                if thumb and thumb.startswith("http"):
+                                    return thumb
+        except Exception:
+            pass
+            
+    # Clean branded initials avatar fallback (never random faces)
+    initials = "+".join([w[0].upper() for w in clean_n.split()[:2]]) if clean_n else (clean_h[:2].upper() or "IG")
+    return f"https://ui-avatars.com/api/?name={initials}&size=300&background=FF6B9D&color=fff&bold=true&format=png"
+
+
 async def _fetch_instagram_profile_ai(clean_handle: str) -> dict:
-    """Intelligent creator intelligence engine fallback using Groq LLM (qwen/qwen3.8-27b).
-    Generates real, verified public data for known creators or high-accuracy metrics for local creators."""
+    """Intelligent creator intelligence engine using Groq LLM with real photo discovery.
+    For known/famous creators, returns their real public metrics and real photo.
+    For unknown handles, returns realistic estimated metrics with clean branded avatar."""
     groq_key = os.getenv("GROQ_API_KEY", "")
     if not groq_key:
         raise Exception(f"Unable to fetch @{clean_handle}: Social intelligence service temporarily unavailable.")
@@ -43,28 +87,35 @@ async def _fetch_instagram_profile_ai(clean_handle: str) -> dict:
     try:
         from groq import Groq
         ai_client = Groq(api_key=groq_key)
-        prompt = f"""You are an elite Instagram Intelligence Engine. Provide realistic, accurate, and up-to-date public Instagram data for the handle: @{clean_handle}.
-If it is a famous creator/celebrity (like therock, virat.kohli, cristiano, mrbeast, etc.), use their real official metrics and bio.
-If it is an emerging or local creator, generate realistic, consistent metrics suitable for an active Instagram creator with this handle.
+        prompt = f"""You are an elite Instagram intelligence engine. Look up public data for handle: @{clean_handle}
 
-Return strictly valid JSON with this exact schema:
+CRITICAL RULES:
+1. If this is a FAMOUS or KNOWN creator, celebrity, athlete, or influencer (e.g. virat.kohli, cristiano, mrbeast, therock, kyliejenner, carryminati, bhuvan.bam22, etc.):
+   - Return their ACTUAL REAL-WORLD metrics from your knowledge base.
+   - For example: virat.kohli has ~270,000,000 followers, cristiano has ~640,000,000 followers, mrbeast has ~60,000,000 IG followers. DO NOT return placeholder small numbers for famous accounts!
+   - Set "verified" to true.
+   - Return their actual location and accurate biography.
+2. If this handle is an ordinary or unknown account, return realistic conservative estimates (e.g. 5,000 to 50,000 followers) and set "verified" to false.
+3. For location, provide their known city/country (e.g. "Mumbai, India", "Lisbon, Portugal", "Los Angeles, USA") or "" if unknown.
+
+Return strictly valid JSON:
 {{
   "name": "Full Name",
   "handle": "@{clean_handle}",
   "bio": "Bio description",
-  "followers": 120000,
-  "following": 450,
-  "posts": 350,
-  "avg_likes": 4500,
-  "avg_comments": 120,
-  "engagement_rate": 3.85,
-  "verified": false,
+  "followers": 270000000,
+  "following": 250,
+  "posts": 1600,
+  "avg_likes": 2500000,
+  "avg_comments": 15000,
+  "engagement_rate": 2.45,
+  "verified": true,
   "location": "City, Country",
-  "niche": ["Entertainment"],
+  "niche": ["Sports", "Fitness"],
   "recent_posts": [
-    {{"caption": "Post caption here", "likes": 4600, "comments": 130}},
-    {{"caption": "Another post caption here", "likes": 4400, "comments": 110}},
-    {{"caption": "Third post caption here", "likes": 4800, "comments": 125}}
+    {{"caption": "Recent post caption", "likes": 2600000, "comments": 16000}},
+    {{"caption": "Another post caption", "likes": 2400000, "comments": 14000}},
+    {{"caption": "Third post caption", "likes": 2700000, "comments": 17000}}
   ]
 }}"""
         resp = ai_client.chat.completions.create(
@@ -82,8 +133,9 @@ Return strictly valid JSON with this exact schema:
         data["platform"] = "instagram"
         data["handle"] = f"@{clean_handle}"
         
-        # Ensure permanent real portrait image
-        data["avatar_url"] = f"https://i.pravatar.cc/300?u={clean_handle}"
+        # Resolve real profile picture
+        name = data.get("name", clean_handle)
+        data["avatar_url"] = await _resolve_real_creator_photo(name, clean_handle)
         return data
     except Exception as e:
         raise Exception(f"Failed to analyze @{clean_handle}: {str(e)}")
@@ -191,7 +243,7 @@ async def fetch_instagram_profile(handle: str) -> dict:
                             "name": full_name,
                             "handle": f"@{clean_handle}",
                             "platform": "instagram",
-                            "avatar_url": p_data.get("profile_pic_url_hd", p_data.get("profile_pic_url", f"https://i.pravatar.cc/300?u={clean_handle}")),
+                            "avatar_url": p_data.get("profile_pic_url_hd", p_data.get("profile_pic_url", f"https://ui-avatars.com/api/?name={full_name.replace(' ', '+')[:20]}&size=300&background=FF6B9D&color=fff&bold=true&format=png")),
                             "followers": followers,
                             "following": p_data.get("edge_follow", {}).get("count", 0) or p_data.get("following_count", 0),
                             "posts": posts_count,

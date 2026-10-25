@@ -697,7 +697,7 @@ export default function OnboardingPage() {
                                 <div className="p-4 rounded-xl bg-[var(--color-neo-yellow)]/30 neo-border text-xs text-[var(--color-neo-black)] font-medium flex items-center gap-3">
                                     <Zap size={20} className="shrink-0 text-[var(--color-neo-black)]" />
                                     <span>
-                                        <strong>Hyper-Local Match Engine:</strong> We will prioritize influencers with follower concentration within 15 km of {brandArea || "your area"}.
+                                        <strong>Same City Match Engine:</strong> We will prioritize influencers and creators based in {brandCity || "your city"} for store visits, events, and local campaigns.
                                     </span>
                                 </div>
                             </div>

@@ -151,28 +151,32 @@ export function getCityMatchedCreators(
 ): CityCreator[] {
     const cleanUserCity = (userCity || "Navi Mumbai").trim().toLowerCase();
 
-    return (realInfluencers || []).map((inf, idx) => {
-        const infLocation = (inf.location || "").trim();
-        const infCity = infLocation || userCity;
-        const isSameCity = infLocation.toLowerCase().includes(cleanUserCity) || cleanUserCity.includes(infLocation.toLowerCase()) || !infLocation;
+    return (realInfluencers || [])
+        .filter((inf) => {
+            // Only include influencers that actually have a location matching the user's city
+            const infLocation = (inf.location || "").trim().toLowerCase();
+            if (!infLocation) return false; // No location = not a same-city match
+            return infLocation.includes(cleanUserCity) || cleanUserCity.includes(infLocation);
+        })
+        .map((inf, idx) => {
+            const infLocation = (inf.location || "").trim();
+            const followers = inf.followers || 0;
+            const estimatedRate = Math.max(2500, Math.round((followers * 0.045) / 500) * 500);
 
-        const followers = inf.followers || 0;
-        const estimatedRate = Math.max(2500, Math.round((followers * 0.045) / 500) * 500);
-
-        return {
-            id: inf.id,
-            name: inf.name || inf.handle,
-            handle: inf.handle.startsWith("@") ? inf.handle : `@${inf.handle}`,
-            platform: (inf.platform === "youtube" ? "youtube" : "instagram") as "instagram" | "youtube",
-            avatar_url: inf.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
-            city: infCity || userCity,
-            followers: followers,
-            engagement_rate: Math.round((inf.engagement_rate || 4.2) * 10) / 10,
-            match_score: inf.match_score || Math.max(80, Math.min(99, 95 - idx * 2)),
-            niche: inf.niche && inf.niche.length > 0 ? inf.niche : ["Lifestyle"],
-            rate_quote: `₹${estimatedRate.toLocaleString("en-IN")}`,
-            verified: true,
-            same_city: isSameCity,
-        };
-    });
+            return {
+                id: inf.id,
+                name: inf.name || inf.handle,
+                handle: inf.handle.startsWith("@") ? inf.handle : `@${inf.handle}`,
+                platform: (inf.platform === "youtube" ? "youtube" : "instagram") as "instagram" | "youtube",
+                avatar_url: inf.avatar_url || "",
+                city: infLocation,
+                followers: followers,
+                engagement_rate: Math.round((inf.engagement_rate || 0) * 10) / 10,
+                match_score: inf.match_score || Math.max(80, Math.min(99, 95 - idx * 2)),
+                niche: inf.niche && inf.niche.length > 0 ? inf.niche : ["General"],
+                rate_quote: `₹${estimatedRate.toLocaleString("en-IN")}`,
+                verified: !!(inf as any).verified,
+                same_city: true, // Already filtered above
+            };
+        });
 }

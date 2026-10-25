@@ -90,7 +90,7 @@ export default function DashboardPage() {
             const avgEng =
                 fetchedList.length > 0
                     ? fetchedList.reduce((a, b) => a + (b.engagement_rate || 0), 0) / fetchedList.length
-                    : 4.8;
+                    : 0;
             const lowRiskCount = fetchedList.filter((i) => i.risk_level === "low").length;
 
             refreshCityData(currentProfile, fetchedList);
@@ -98,7 +98,7 @@ export default function DashboardPage() {
             setStats({
                 total,
                 avgEngagement: Math.round(avgEng * 10) / 10,
-                lowRisk: lowRiskCount || 4,
+                lowRisk: lowRiskCount,
                 localMatches: fetchedList.length,
             });
         } catch {

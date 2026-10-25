@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert, LogOut } from "lucide-react";
+import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert, LogOut, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase-browser";
@@ -50,6 +50,7 @@ export default function SettingsPage() {
                     full_name: mergedProfile.full_name || userEmail.split('@')[0] || "User",
                     company: mergedProfile.company || mergedProfile.business_name || "",
                     role: mergedProfile.role || mergedProfile.account_type || "",
+                    city: mergedProfile.city || stored.city || "Navi Mumbai",
                     notifications: mergedProfile.notifications || {}
                 });
             } catch {
@@ -58,6 +59,7 @@ export default function SettingsPage() {
                     full_name: userEmail.split('@')[0] || "User",
                     company: stored.business_name || "",
                     role: stored.account_type || "",
+                    city: stored.city || "Navi Mumbai",
                     notifications: {}
                 });
             }
@@ -80,6 +82,7 @@ export default function SettingsPage() {
             saveStoredUserProfile({
                 business_name: formData.company,
                 account_type: (formData.role === "creator" || formData.role === "influencer" ? "influencer" : "brand") as any,
+                city: formData.city || "Navi Mumbai",
             });
 
             // 2. Save to backend database
@@ -205,6 +208,19 @@ export default function SettingsPage() {
                                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                     className="neo-input w-full pl-12 py-3 rounded-xl font-medium"
                                     placeholder="e.g. Marketing Director"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs font-bold uppercase text-neo-black/40">City (Used for Same-City Matching)</label>
+                            <div className="relative">
+                                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neo-pink" size={18} />
+                                <input
+                                    type="text"
+                                    value={formData.city || ""}
+                                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                    className="neo-input w-full pl-12 py-3 rounded-xl font-medium"
+                                    placeholder="e.g. Navi Mumbai, Mumbai, Bangalore, Delhi"
                                 />
                             </div>
                         </div>

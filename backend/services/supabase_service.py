@@ -1,12 +1,19 @@
 """
 Supabase service — handles all database operations
 """
+from __future__ import annotations
+
 import os
 import uuid
+from datetime import datetime
+from typing import Optional, Dict, Any, List, Union
 from supabase import create_client, Client
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv(".env.local")
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env.local"))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 def is_valid_uuid(val: str) -> bool:
@@ -79,6 +86,12 @@ async def search_influencers(
     sb = get_supabase()
     q = sb.table("influencers").select("*")
     
+    # Filter by user_id to only show the current user's influencers
+    if user_id and is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
+    # Exclude system demo seed user
+    q = q.neq("user_id", "00000000-0000-0000-0000-000000000000")
+    
     if query:
         q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
     if platform:
@@ -104,6 +117,12 @@ async def search_influencers(
 async def get_all_influencers(user_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
     sb = get_supabase()
     q = sb.table("influencers").select("*")
+    
+    # Filter by user_id to only show the current user's influencers
+    if user_id and is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
+    # Exclude system demo seed user
+    q = q.neq("user_id", "00000000-0000-0000-0000-000000000000")
     
     result = (
         q.order("created_at", desc=True)
@@ -199,13 +218,13 @@ async def save_report(report: dict) -> dict:
 async def get_reports(user_id: str | None = None) -> list[dict]:
     sb = get_supabase()
     q = sb.table("reports").select("*")
-    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
+    if user_id and is_valid_uuid(user_id):
+        # Strict user isolation: only return reports for this specific user
         user_res = q.eq("user_id", user_id).order("created_at", desc=True).limit(50).execute()
-        if user_res.data:
-            return user_res.data
+        return user_res.data or []
     
-    # Return all available reports
-    all_res = sb.table("reports").select("*").order("created_at", desc=True).limit(50).execute()
+    # Return all non-demo reports if no user_id specified
+    all_res = sb.table("reports").select("*").neq("user_id", "00000000-0000-0000-0000-000000000000").order("created_at", desc=True).limit(50).execute()
     return all_res.data or []
 
 
@@ -236,10 +255,15 @@ async def delete_report(report_id: str) -> bool:
 
 
 async def get_all_risk_flags(user_id: str | None = None) -> list[dict]:
-    """Get all risk flags across all influencers for real-time audit monitoring"""
+    """Get all risk flags across influencers with strict user isolation"""
     sb = get_supabase()
     q = sb.table("risk_flags").select("id, influencer_id, type, severity, description, source, evidence, detected_at, influencers!inner(id, name, handle, platform, avatar_url, user_id)")
     
+    if user_id and is_valid_uuid(user_id):
+        q = q.eq("influencers.user_id", user_id)
+    else:
+        q = q.neq("influencers.user_id", "00000000-0000-0000-0000-000000000000")
+        
     result = (
         q.order("detected_at", desc=True)
         .limit(100)
