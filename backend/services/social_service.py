@@ -6,6 +6,7 @@ Set RAPIDAPI_KEY in your .env to enable real data fetching.
 """
 import os
 import httpx
+import base64
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import random
@@ -34,45 +35,80 @@ YOUTUBE_HOST = os.getenv("YOUTUBE_HOST", "youtube138.p.rapidapi.com")
 # ======== Instagram (via instagram120) ========
 
 async def _resolve_real_creator_photo(name: str, handle: str) -> str:
-    """Find real creator profile photo via Wikimedia / Wikipedia public encyclopedia API.
-    Returns the authentic photo URL if available, otherwise a clean branded initials avatar."""
+    """Find real creator profile photo via Wikimedia / Wikipedia public encyclopedia API or Dumpor public mirror.
+    Returns authentic permanent photo URL or a branded fallback."""
     clean_n = (name or "").strip()
-    clean_h = (handle or "").replace("@", "").replace(".", "").replace("_", "").lower().strip()
+    clean_h = (handle or "").replace("@", "").replace(".", " ").replace("_", " ").lower().strip()
+    raw_handle = (handle or "").replace("@", "").strip().lower()
     
     headers = {"User-Agent": "InfluenceIQ/1.0 (contact@influenceiq.com)"}
     
-    # Check if Wikipedia has a verified photo for this creator/personality
-    if clean_n:
+    # 1. Check Wikipedia for famous creators/athletes/influencers (skip pure digits like 433 to avoid asteroids)
+    if not raw_handle.isdigit():
+        queries = []
+        if clean_n and clean_h:
+            queries.append(f"{clean_n} {clean_h}")
+        if clean_n:
+            queries.append(clean_n)
+        if raw_handle:
+            queries.append(raw_handle)
+            
+        # Add stripped handle without common prefixes (e.g. ig_mortal -> mortal)
+        stripped = re.sub(r'^(ig_|iam|the|official_|real_)', '', raw_handle)
+        stripped = re.sub(r'(_official|_real|_yt|_gaming)$', '', stripped)
+        if stripped and stripped != raw_handle and len(stripped) > 2:
+            queries.extend([f"{stripped} gamer", f"{stripped} creator", f"{stripped} youtube", stripped])
+            
         try:
             async with httpx.AsyncClient(timeout=4.0) as client:
-                sr = await client.get(
-                    "https://en.wikipedia.org/w/api.php",
-                    params={"action": "query", "format": "json", "list": "search", "srsearch": clean_n, "srlimit": "1"},
-                    headers=headers
+                for q in queries:
+                    sr = await client.get(
+                        "https://en.wikipedia.org/w/api.php",
+                        params={"action": "query", "format": "json", "list": "search", "srsearch": q, "srlimit": "4"},
+                        headers=headers
+                    )
+                    if sr.status_code == 200:
+                        items = sr.json().get("query", {}).get("search", [])
+                        for item in items:
+                            title = item.get("title", "")
+                            clean_title = title.replace("_", " ").lower()
+                            name_parts = [p.lower() for p in clean_n.split() if len(p) > 2]
+                            handle_parts = [p.lower() for p in clean_h.split() if len(p) > 2]
+                            if stripped:
+                                handle_parts.append(stripped.lower())
+                            if any(np in clean_title for np in name_parts) or any(hp in clean_title for hp in handle_parts):
+                                page_slug = title.replace(" ", "_")
+                                pr = await client.get(
+                                    f"https://en.wikipedia.org/api/rest_v1/page/summary/{page_slug}",
+                                    headers=headers
+                                )
+                                if pr.status_code == 200:
+                                    thumb = pr.json().get("thumbnail", {}).get("source")
+                                    if thumb and thumb.startswith("http"):
+                                        return thumb
+        except Exception:
+            pass
+
+    # 2. Try greatfon / dumpor for unblocked avatar image
+    if raw_handle:
+        try:
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+                gr = await client.get(
+                    f"https://greatfon.io/v/{raw_handle}",
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
                 )
-                if sr.status_code == 200:
-                    items = sr.json().get("query", {}).get("search", [])
-                    if items:
-                        title = items[0]["title"]
-                        clean_title = title.replace("_", "").replace(" ", "").lower()
-                        first_name = clean_n.split()[0].lower() if clean_n else ""
-                        
-                        # Strict match: title must contain the first name or handle to prevent false matches
-                        if first_name and (first_name in clean_title or clean_h in clean_title):
-                            page_slug = title.replace(" ", "_")
-                            pr = await client.get(
-                                f"https://en.wikipedia.org/api/rest_v1/page/summary/{page_slug}",
-                                headers=headers
-                            )
-                            if pr.status_code == 200:
-                                thumb = pr.json().get("thumbnail", {}).get("source")
-                                if thumb and thumb.startswith("http"):
-                                    return thumb
+                if gr.status_code == 200 and "media.dumpor.io" in gr.text:
+                    from bs4 import BeautifulSoup
+                    soup = BeautifulSoup(gr.text, "html.parser")
+                    for img in soup.find_all("img"):
+                        src = img.get("src", "")
+                        if "media.dumpor.io" in src and src.startswith("http"):
+                            return src
         except Exception:
             pass
             
-    # Clean branded initials avatar fallback (never random faces)
-    initials = "+".join([w[0].upper() for w in clean_n.split()[:2]]) if clean_n else (clean_h[:2].upper() or "IG")
+    # Clean branded initials avatar fallback
+    initials = "+".join([w[0].upper() for w in clean_n.split()[:2]]) if clean_n else (raw_handle[:2].upper() or "IG")
     return f"https://ui-avatars.com/api/?name={initials}&size=300&background=FF6B9D&color=fff&bold=true&format=png"
 
 
@@ -147,9 +183,26 @@ async def _fetch_real_instagram_live(clean_handle: str) -> dict | None:
                 avg_likes = int(total_eng * 0.96)
                 avg_comments = int(total_eng * 0.04)
                 
-                # If avatar is relative or empty, resolve real photo via Wikipedia
-                if not avatar or not avatar.startswith("http"):
-                    avatar = await _resolve_real_creator_photo(clean_name, clean_handle)
+                # Inline the avatar as a base64 data URI so it NEVER expires or fails CORS/anti-hotlinking
+                stable_avatar = None
+                if avatar and avatar.startswith("http"):
+                    try:
+                        img_headers = {
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                            "Referer": "https://insta-stories-viewer.com/",
+                        }
+                        img_resp = await client.get(avatar, headers=img_headers, timeout=5.0)
+                        if img_resp.status_code == 200 and len(img_resp.content) > 200:
+                            b64_data = base64.b64encode(img_resp.content).decode("utf-8")
+                            mime = img_resp.headers.get("content-type") or "image/jpeg"
+                            stable_avatar = f"data:{mime};base64,{b64_data}"
+                    except Exception:
+                        pass
+                
+                if not stable_avatar:
+                    stable_avatar = await _resolve_real_creator_photo(clean_name, clean_handle)
+                    
+                avatar = stable_avatar or avatar
                     
                 location = _detect_location_from_bio_or_captions(bio, clean_name, [bio])
                 niche = _detect_niche_from_bio(bio, clean_name, [bio])
@@ -197,10 +250,10 @@ async def _fetch_instagram_profile_ai(clean_handle: str) -> dict:
         prompt = f"""You are an elite Instagram intelligence engine. Look up public data for handle: @{clean_handle}
 
 CRITICAL RULES:
-1. If this is a FAMOUS or KNOWN creator, streamer, esports athlete, celebrity, actor, or influencer (e.g. virat.kohli, cristiano, mrbeast, carryminati, ig_mortal, bhuvan.bam22, technicalguruji, scoutop, mortal, totalgaming_official, triggeredinsaan, ashishchanchlani, etc.):
+1. If this is a FAMOUS or KNOWN creator, brand, publisher, streamer, athlete, or influencer (e.g. 433, virat.kohli, cristiano, mrbeast, carryminati, ig_mortal, bhuvan.bam22, technicalguruji, scoutop, mortal, totalgaming_official, triggeredinsaan, ashishchanchlani, etc.):
    - Return their ACTUAL REAL-WORLD metrics from your knowledge base.
-   - For example: virat.kohli has ~270,000,000 followers, cristiano has ~650,000,000 followers, mrbeast has ~60,000,000 IG followers, ig_mortal has ~4,800,000 followers (Name: Naman Mathur, Niche: Gaming), carryminati has ~21,000,000 followers. DO NOT return placeholder small numbers for famous accounts!
-   - Set "name" to their real-world personal name or popular creator name (e.g. "Naman Mathur (Mortal)", "Ajey Nagar (CarryMinati)", "Virat Kohli").
+   - For example: 433 has ~79,000,000 followers (Name: 433 | The Home of Football, Niche: Football/Sports), virat.kohli has ~270,000,000 followers, cristiano has ~650,000,000 followers, mrbeast has ~60,000,000 IG followers, ig_mortal has ~4,800,000 followers (Name: Naman Mathur, Niche: Gaming), carryminati has ~21,000,000 followers. DO NOT return placeholder small numbers for famous accounts!
+   - Set "name" to their real-world personal name or brand name (e.g. "433", "Naman Mathur (Mortal)", "Ajey Nagar (CarryMinati)", "Virat Kohli").
    - Set "verified" to true.
    - Return their actual location and accurate biography.
 2. If this handle is an ordinary or unknown account, return realistic conservative estimates (e.g. 5,000 to 50,000 followers) and set "verified" to false.

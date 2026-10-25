@@ -43,24 +43,36 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         # Clean handle: strip spaces, @, lowercase
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
         
-        # 1. Check 24-hour database cache for sub-100ms instant response (zero quota cost, user isolated)
+        # 1. Check database cache ONLY if it contains authentic verified data (never placeholder/ui-avatars/unknown)
         cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform, user_id=effective_user_id)
         if cached_profile and cached_profile.get("updated_at"):
-            try:
-                last_updated = datetime.fromisoformat(cached_profile["updated_at"].replace("Z", ""))
-                if (datetime.utcnow() - last_updated).total_seconds() < 86400:  # 24 hours
-                    timeline = await db.get_engagement_data(cached_profile["id"])
-                    sentiment = await db.get_sentiment(cached_profile["id"])
-                    risk_flags = await db.get_risk_flags(cached_profile["id"])
-                    return {
-                        "profile": cached_profile,
-                        "engagement": timeline,
-                        "sentiment": sentiment or {},
-                        "risk": {"overall_risk": cached_profile.get("risk_level", "low"), "flags": risk_flags},
-                        "cached": True
-                    }
-            except Exception:
-                pass
+            c_avatar = cached_profile.get("avatar_url", "")
+            c_name = cached_profile.get("name", "")
+            c_followers = cached_profile.get("followers", 0)
+            
+            # If cached profile has placeholder data (ui-avatars, Unknown, 12000, 12345), ignore cache and fetch real live data!
+            is_valid_real_cache = (
+                bool(c_avatar)
+                and "ui-avatars.com" not in c_avatar
+                and c_name not in ("Unknown", "Anonymous")
+                and c_followers not in (0, 12000, 12345)
+            )
+            if is_valid_real_cache:
+                try:
+                    last_updated = datetime.fromisoformat(cached_profile["updated_at"].replace("Z", ""))
+                    if (datetime.utcnow() - last_updated).total_seconds() < 86400:  # 24 hours
+                        timeline = await db.get_engagement_data(cached_profile["id"])
+                        sentiment = await db.get_sentiment(cached_profile["id"])
+                        risk_flags = await db.get_risk_flags(cached_profile["id"])
+                        return {
+                            "profile": cached_profile,
+                            "engagement": timeline,
+                            "sentiment": sentiment or {},
+                            "risk": {"overall_risk": cached_profile.get("risk_level", "low"), "flags": risk_flags},
+                            "cached": True
+                        }
+                except Exception:
+                    pass
 
         # Demo Mode: Unlimited search quota for presentation
         user_prof = await db.get_user_profile(effective_user_id)

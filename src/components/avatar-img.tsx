@@ -68,17 +68,19 @@ export default function AvatarImg({
     );
 }
 
-/** Proxy Instagram/Facebook CDN URLs through our server. YouTube etc. load fine directly. */
 function getProxiedUrl(url: string): string {
     if (!url) return "";
-    // Instagram & Facebook CDN URLs need proxying
+    if (url.startsWith("data:")) return url;
+    // Instagram, Facebook, and scraper CDN URLs need proxying
     if (
         url.includes("cdninstagram.com") ||
         url.includes("fbcdn.net") ||
-        url.includes("instagram.com")
+        url.includes("instagram.com") ||
+        url.includes("iqsaved.com") ||
+        url.includes("stories-viewer")
     ) {
         return `/api/image-proxy?url=${encodeURIComponent(url)}`;
     }
-    // YouTube, Google, and other URLs work directly
+    // YouTube, Google, Wikimedia, and other URLs work directly
     return url;
 }

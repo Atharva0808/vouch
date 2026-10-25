@@ -13,12 +13,18 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const imageResp = await fetch(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Accept": "image/*",
-            },
-        });
+        const headers: Record<string, string> = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+        };
+
+        if (url.includes("iqsaved.com") || url.includes("stories-viewer")) {
+            headers["Referer"] = "https://insta-stories-viewer.com/";
+        } else if (url.includes("cdninstagram.com") || url.includes("fbcdn.net") || url.includes("instagram.com")) {
+            headers["Referer"] = "https://www.instagram.com/";
+        }
+
+        const imageResp = await fetch(url, { headers });
 
         if (!imageResp.ok) {
             // Instagram CDN URL expired or blocked -> Fallback to initials avatar
