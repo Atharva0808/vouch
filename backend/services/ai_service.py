@@ -11,16 +11,17 @@ Groq AI service — handles all AI/ML tasks using Groq's ultra-fast LLM API:
 import os
 import json
 from datetime import datetime
+from typing import Optional, List, Dict, Any, Union
 from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client: Groq | None = None
+client: Optional[Groq] = None
 MODEL = "openai/gpt-oss-20b"
 
 
-def get_groq() -> Groq | None:
+def get_groq() -> Optional[Groq]:
     global client
     if client is None:
         api_key = os.getenv("GROQ_API_KEY", "")
@@ -553,7 +554,7 @@ async def generate_brief(
     brand_name: str,
     campaign_objective: str,
     brand_niche: str = "",
-    budget: float | None = None,
+    budget: Optional[float] = None,
 ) -> str:
     """Generate a comprehensive marketing brief using AI"""
     ai = get_groq()

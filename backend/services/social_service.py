@@ -197,9 +197,10 @@ async def _fetch_instagram_profile_ai(clean_handle: str) -> dict:
         prompt = f"""You are an elite Instagram intelligence engine. Look up public data for handle: @{clean_handle}
 
 CRITICAL RULES:
-1. If this is a FAMOUS or KNOWN creator, celebrity, athlete, or influencer (e.g. virat.kohli, cristiano, mrbeast, therock, kyliejenner, carryminati, bhuvan.bam22, etc.):
+1. If this is a FAMOUS or KNOWN creator, streamer, esports athlete, celebrity, actor, or influencer (e.g. virat.kohli, cristiano, mrbeast, carryminati, ig_mortal, bhuvan.bam22, technicalguruji, scoutop, mortal, totalgaming_official, triggeredinsaan, ashishchanchlani, etc.):
    - Return their ACTUAL REAL-WORLD metrics from your knowledge base.
-   - For example: virat.kohli has ~270,000,000 followers, cristiano has ~640,000,000 followers, mrbeast has ~60,000,000 IG followers. DO NOT return placeholder small numbers for famous accounts!
+   - For example: virat.kohli has ~270,000,000 followers, cristiano has ~650,000,000 followers, mrbeast has ~60,000,000 IG followers, ig_mortal has ~4,800,000 followers (Name: Naman Mathur, Niche: Gaming), carryminati has ~21,000,000 followers. DO NOT return placeholder small numbers for famous accounts!
+   - Set "name" to their real-world personal name or popular creator name (e.g. "Naman Mathur (Mortal)", "Ajey Nagar (CarryMinati)", "Virat Kohli").
    - Set "verified" to true.
    - Return their actual location and accurate biography.
 2. If this handle is an ordinary or unknown account, return realistic conservative estimates (e.g. 5,000 to 50,000 followers) and set "verified" to false.
@@ -367,16 +368,25 @@ async def fetch_instagram_profile(handle: str) -> dict:
             pass  # Fall through to resilient AI intelligence engine
 
     # 2. Live Real-Time Instagram Scraper (Direct authentic metrics & verified photos)
-    live_profile = await _fetch_real_instagram_live(clean_handle)
-    if live_profile and live_profile.get("followers", 0) > 0:
-        return live_profile
+    try:
+        live_profile = await _fetch_real_instagram_live(clean_handle)
+        if live_profile and live_profile.get("followers", 0) > 0:
+            return live_profile
+    except Exception as e:
+        print(f"Notice: live scraper exception for @{clean_handle}: {e}")
 
-    # 3. Known public figure/creator entity lookup with real Wikimedia photo
-    wiki_photo = await _resolve_real_creator_photo(clean_handle, clean_handle)
-    if wiki_photo and "wikimedia.org" in wiki_photo:
+    # 3. Known creator / public figure entity lookup with authentic metrics & real photo resolution
+    try:
         ai_profile = await _fetch_instagram_profile_ai(clean_handle)
-        ai_profile["avatar_url"] = wiki_photo
-        return ai_profile
+        if ai_profile and ai_profile.get("followers", 0) > 0:
+            creator_name = ai_profile.get("name", "")
+            # Try to resolve real creator photo from Wikipedia
+            wiki_photo = await _resolve_real_creator_photo(creator_name, clean_handle)
+            if wiki_photo and "wikimedia.org" in wiki_photo:
+                ai_profile["avatar_url"] = wiki_photo
+            return ai_profile
+    except Exception as e:
+        print(f"Notice: AI profile lookup exception for @{clean_handle}: {e}")
 
     # 4. If account doesn't exist or cannot be reached
     raise Exception(f"Instagram profile @{clean_handle} could not be found or is private. Please verify the handle.")

@@ -15,11 +15,17 @@ import asyncio
 
 router = APIRouter(prefix="/api/influencers", tags=["Influencers"])
 
+import uuid
 DEFAULT_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 def get_effective_user_id(x_user_id: any) -> str:
-    if isinstance(x_user_id, str) and x_user_id.strip() and x_user_id.strip() != "undefined":
-        return x_user_id.strip()
+    if isinstance(x_user_id, str) and x_user_id.strip() and x_user_id.strip() not in ("undefined", "null"):
+        val = x_user_id.strip()
+        try:
+            uuid.UUID(val)
+            return val
+        except ValueError:
+            pass
     return DEFAULT_DEMO_USER_ID
 
 def check_influencer_access(profile: dict | None, effective_user_id: str) -> bool:

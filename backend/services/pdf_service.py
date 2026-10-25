@@ -3,6 +3,8 @@ PDF generation for reports — converts report JSON to downloadable PDFs.
 """
 import io
 import html
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -209,7 +211,7 @@ def report_to_pdf(report: dict) -> bytes:
     return buffer.getvalue()
 
 
-def reports_to_combined_pdf(reports: list[dict]) -> bytes:
+def reports_to_combined_pdf(reports: List[Dict]) -> bytes:
     """Combine multiple reports into one PDF."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
