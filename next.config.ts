@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.googleusercontent.com" },
       { protocol: "https", hostname: "**.wikimedia.org" },
       { protocol: "https", hostname: "ui-avatars.com" },
+      { protocol: "https", hostname: "**.iqsaved.com" },
     ],
   },
 };

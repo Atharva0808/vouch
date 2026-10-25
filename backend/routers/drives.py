@@ -111,7 +111,7 @@ async def update_drive(drive_id: str, req: CreateDriveRequest, x_user_id: str | 
     drive = await db.get_drive(drive_id)
     if not drive:
         raise HTTPException(status_code=404, detail="Drive not found")
-    if drive.get("user_id") != effective_user_id and effective_user_id != DEFAULT_DEMO_USER_ID:
+    if str(drive.get("user_id", "")) != str(effective_user_id):
         raise HTTPException(status_code=403, detail="Not authorized to edit this drive")
     
     update_data = {
@@ -145,7 +145,7 @@ async def delete_drive(drive_id: str, x_user_id: str | None = Header(None)):
     drive = await db.get_drive(drive_id)
     if not drive:
         raise HTTPException(status_code=404, detail="Drive not found")
-    if drive.get("user_id") != effective_user_id and effective_user_id != DEFAULT_DEMO_USER_ID:
+    if str(drive.get("user_id", "")) != str(effective_user_id):
         raise HTTPException(status_code=403, detail="Not authorized to delete this drive")
     
     await db.delete_drive(drive_id)

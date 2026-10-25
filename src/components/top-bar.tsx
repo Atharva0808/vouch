@@ -88,6 +88,12 @@ export default function TopBar() {
     const handleLogout = async () => {
         try {
             setShowUserMenu(false);
+            if (typeof window !== "undefined") {
+                localStorage.removeItem("vouch_active_user_id");
+                localStorage.removeItem("vouch_user_profile");
+                localStorage.removeItem("vouch_account_type");
+                localStorage.removeItem("vouch_device_guest_uuid");
+            }
             const supabase = createClient();
             await supabase.auth.signOut();
         } catch (error) {

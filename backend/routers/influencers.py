@@ -25,7 +25,7 @@ def get_effective_user_id(x_user_id: any) -> str:
 def check_influencer_access(profile: dict | None, effective_user_id: str) -> bool:
     if not profile:
         return False
-    return True
+    return str(profile.get("user_id", "")) == str(effective_user_id)
 
 
 @router.post("/fetch", response_model=dict)
@@ -37,8 +37,8 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         # Clean handle: strip spaces, @, lowercase
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
         
-        # 1. Check 24-hour database cache for sub-100ms instant response (zero quota cost)
-        cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform)
+        # 1. Check 24-hour database cache for sub-100ms instant response (zero quota cost, user isolated)
+        cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform, user_id=effective_user_id)
         if cached_profile and cached_profile.get("updated_at"):
             try:
                 last_updated = datetime.fromisoformat(cached_profile["updated_at"].replace("Z", ""))
@@ -279,9 +279,7 @@ async def clear_all_influencers(x_user_id: str | None = Header(None)):
     """Delete ALL influencers and related data from the database"""
     effective_user_id = get_effective_user_id(x_user_id)
     try:
-        infs = await db.get_all_influencers(user_id=effective_user_id, limit=1000)
-        for inf in infs:
-            await db.delete_influencer(inf["id"])
+        await db.clear_all_influencers(user_id=effective_user_id)
             
         await db.log_activity(
             user_id=effective_user_id,
@@ -306,7 +304,7 @@ async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(N
         name = profile.get("name", "Unknown") if profile else "Unknown"
         handle = profile.get("handle", "") if profile else ""
         
-        success = await db.delete_influencer(influencer_id)
+        success = await db.delete_influencer(influencer_id, user_id=effective_user_id)
         if not success:
             raise HTTPException(status_code=404, detail="Influencer not found")
         

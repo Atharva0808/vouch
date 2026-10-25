@@ -44,29 +44,32 @@ async def upsert_influencer(data: dict, user_id: str) -> dict:
     return result.data[0] if result.data else {}
 
 
-async def get_influencer(influencer_id: str) -> dict | None:
+async def get_influencer(influencer_id: str, user_id: str | None = None) -> dict | None:
     if not is_valid_uuid(influencer_id):
         return None
     sb = get_supabase()
     try:
-        result = sb.table("influencers").select("*").eq("id", influencer_id).single().execute()
-        return result.data
+        q = sb.table("influencers").select("*").eq("id", influencer_id)
+        if user_id and is_valid_uuid(user_id):
+            q = q.eq("user_id", user_id)
+        result = q.maybe_single().execute()
+        return result.data if result else None
     except Exception:
         return None
 
 
-
-async def get_influencer_by_handle(handle: str, platform: str) -> dict | None:
+async def get_influencer_by_handle(handle: str, platform: str, user_id: str | None = None) -> dict | None:
     sb = get_supabase()
     try:
-        result = (
+        q = (
             sb.table("influencers")
             .select("*")
             .eq("handle", handle)
             .eq("platform", platform)
-            .maybe_single()
-            .execute()
         )
+        if user_id and is_valid_uuid(user_id):
+            q = q.eq("user_id", user_id)
+        result = q.maybe_single().execute()
         return result.data if result else None
     except Exception:
         return None
@@ -83,14 +86,10 @@ async def search_influencers(
     min_engagement: float | None = None,
     risk_level: str | None = None,
 ) -> list[dict]:
+    if not user_id or not is_valid_uuid(user_id):
+        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*")
-    
-    # Filter by user_id to only show the current user's influencers
-    if user_id and is_valid_uuid(user_id):
-        q = q.eq("user_id", user_id)
-    # Exclude system demo seed user
-    q = q.neq("user_id", "00000000-0000-0000-0000-000000000000")
+    q = sb.table("influencers").select("*").eq("user_id", user_id)
     
     if query:
         q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
@@ -115,14 +114,10 @@ async def search_influencers(
 
 
 async def get_all_influencers(user_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
+    if not user_id or not is_valid_uuid(user_id):
+        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*")
-    
-    # Filter by user_id to only show the current user's influencers
-    if user_id and is_valid_uuid(user_id):
-        q = q.eq("user_id", user_id)
-    # Exclude system demo seed user
-    q = q.neq("user_id", "00000000-0000-0000-0000-000000000000")
+    q = sb.table("influencers").select("*").eq("user_id", user_id)
     
     result = (
         q.order("created_at", desc=True)
@@ -369,25 +364,43 @@ async def get_activity_feed(user_id: str, limit: int = 20) -> list[dict]:
 
 # ======== Delete Operations ========
 
-async def delete_influencer(influencer_id: str) -> bool:
-    """Delete an influencer and all related data"""
+async def delete_influencer(influencer_id: str, user_id: str | None = None) -> bool:
+    """Delete an influencer and all related data (scoped to user)"""
+    if not is_valid_uuid(influencer_id):
+        return False
     sb = get_supabase()
     # Delete related data first
     sb.table("engagement_data").delete().eq("influencer_id", influencer_id).execute()
     sb.table("sentiment_analysis").delete().eq("influencer_id", influencer_id).execute()
     sb.table("risk_flags").delete().eq("influencer_id", influencer_id).execute()
     sb.table("reports").delete().eq("influencer_id", influencer_id).execute()
-    # Delete the influencer
-    result = sb.table("influencers").delete().eq("id", influencer_id).execute()
+    
+    # Delete the influencer strictly scoped to this user
+    q = sb.table("influencers").delete().eq("id", influencer_id)
+    if user_id and is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
+    result = q.execute()
     return bool(result.data)
 
 
-async def clear_all_influencers() -> int:
-    """Delete ALL influencers and related data from the database"""
+async def clear_all_influencers(user_id: str) -> int:
+    """Delete ALL influencers belonging to a specific user (never wipes other users)"""
+    if not user_id or not is_valid_uuid(user_id):
+        return 0
     sb = get_supabase()
-    # The child tables have ON DELETE CASCADE, so just delete influencers
-    # Use a condition that matches all rows — created_at is always > year 2000
-    result = sb.table("influencers").delete().gte("created_at", "2000-01-01").execute()
+    
+    # Find all influencer IDs for this user
+    user_infs = sb.table("influencers").select("id").eq("user_id", user_id).execute()
+    inf_ids = [row["id"] for row in (user_infs.data or []) if is_valid_uuid(row.get("id"))]
+    
+    for inf_id in inf_ids:
+        sb.table("engagement_data").delete().eq("influencer_id", inf_id).execute()
+        sb.table("sentiment_analysis").delete().eq("influencer_id", inf_id).execute()
+        sb.table("risk_flags").delete().eq("influencer_id", inf_id).execute()
+        sb.table("reports").delete().eq("influencer_id", inf_id).execute()
+        
+    result = sb.table("influencers").delete().eq("user_id", user_id).execute()
+    return len(result.data) if result.data else 0
     return len(result.data) if result.data else 0
 
 

@@ -67,13 +67,30 @@ const DEFAULT_CREATOR_PROFILE: OnboardingProfile = {
     onboarding_completed: true,
 };
 
+function getActiveStorageKey(): string {
+    if (typeof window === "undefined") return "vouch_user_profile";
+    const activeUid = localStorage.getItem("vouch_active_user_id");
+    if (activeUid && activeUid !== "00000000-0000-0000-0000-000000000001") {
+        return `vouch_user_profile_${activeUid}`;
+    }
+    const guestUid = localStorage.getItem("vouch_device_guest_uuid");
+    if (guestUid) {
+        return `vouch_user_profile_${guestUid}`;
+    }
+    return "vouch_user_profile";
+}
+
 /** Get the currently active onboarding profile from localStorage */
 export function getStoredUserProfile(): OnboardingProfile {
     if (typeof window === "undefined") {
         return DEFAULT_BRAND_PROFILE;
     }
     try {
-        const stored = localStorage.getItem("vouch_user_profile");
+        const key = getActiveStorageKey();
+        let stored = localStorage.getItem(key);
+        if (!stored && key !== "vouch_user_profile") {
+            stored = localStorage.getItem("vouch_user_profile");
+        }
         if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed && (parsed.business_name || parsed.city)) {
@@ -103,6 +120,8 @@ export function saveStoredUserProfile(profile: Partial<OnboardingProfile>) {
             ...profile,
             updated_at: new Date().toISOString(),
         };
+        const key = getActiveStorageKey();
+        localStorage.setItem(key, JSON.stringify(merged));
         localStorage.setItem("vouch_user_profile", JSON.stringify(merged));
         if (merged.account_type) {
             localStorage.setItem("vouch_account_type", merged.account_type);

@@ -20,7 +20,9 @@ def get_effective_user_id(x_user_id: any) -> str:
     return DEFAULT_DEMO_USER_ID
 
 def check_access(owner_id: str | None, effective_user_id: str) -> bool:
-    return True
+    if not owner_id or not effective_user_id:
+        return False
+    return str(owner_id) == str(effective_user_id)
 
 
 @router.post("/brief")

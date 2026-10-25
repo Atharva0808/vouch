@@ -12,25 +12,46 @@ function getBackendUrl(): string {
 
 const BACKEND_URL = getBackendUrl();
 
-const DEFAULT_CLIENT_USER_ID = "00000000-0000-0000-0000-000000000001";
+function getDeviceGuestUuid(): string {
+    if (typeof window === "undefined") {
+        return "00000000-0000-0000-0000-000000000001";
+    }
+    try {
+        let guestId = localStorage.getItem("vouch_device_guest_uuid");
+        if (!guestId || guestId === "00000000-0000-0000-0000-000000000001") {
+            guestId = (typeof crypto !== "undefined" && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : "00000000-0000-4000-8000-" + Array.from({ length: 12 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+            localStorage.setItem("vouch_device_guest_uuid", guestId);
+        }
+        return guestId;
+    } catch {
+        return "00000000-0000-0000-0000-000000000001";
+    }
+}
 
 export async function getEffectiveUserId(): Promise<string> {
-    let userId = "";
     try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            userId = user.id;
+        if (user && user.id) {
             if (typeof window !== "undefined") {
                 localStorage.setItem("vouch_active_user_id", user.id);
             }
-        } else if (typeof window !== "undefined") {
-            userId = localStorage.getItem("vouch_active_user_id") || DEFAULT_CLIENT_USER_ID;
+            return user.id;
         }
     } catch {
-        userId = DEFAULT_CLIENT_USER_ID;
+        // Fall through to stored/guest UUID
     }
-    return userId || DEFAULT_CLIENT_USER_ID;
+
+    if (typeof window !== "undefined") {
+        const active = localStorage.getItem("vouch_active_user_id");
+        if (active && active !== "00000000-0000-0000-0000-000000000001") {
+            return active;
+        }
+    }
+
+    return getDeviceGuestUuid();
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {

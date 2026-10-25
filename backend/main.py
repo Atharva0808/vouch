@@ -3,6 +3,14 @@ Vouch — FastAPI Backend
 Main application entry point
 """
 import os
+import sys
+from pathlib import Path
+
+# Add backend directory to sys.path
+backend_dir = str(Path(__file__).parent)
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
