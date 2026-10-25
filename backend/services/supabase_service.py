@@ -391,8 +391,158 @@ async def get_user_by_stripe_customer_id(customer_id: str) -> dict | None:
         return None
 
 
+# ======== Marketing Drives ========
+
+async def create_drive(data: dict) -> dict:
+    """Create a new marketing drive (brand posts a campaign)"""
+    sb = get_supabase()
+    if not is_valid_uuid(data.get("user_id")):
+        data["user_id"] = "00000000-0000-0000-0000-000000000001"
+    result = sb.table("marketing_drives").insert(data).execute()
+    return result.data[0] if result.data else {}
 
 
+async def get_drives(
+    city: str | None = None,
+    category: str | None = None,
+    status: str = "active",
+    limit: int = 50,
+) -> list[dict]:
+    """Get active marketing drives, optionally filtered by city/category"""
+    sb = get_supabase()
+    q = sb.table("marketing_drives").select("*")
+    if status:
+        q = q.eq("status", status)
+    if city:
+        q = q.ilike("city", f"%{city}%")
+    if category:
+        q = q.eq("category", category)
+    result = q.order("created_at", desc=True).limit(limit).execute()
+    return result.data or []
+
+
+async def get_drive(drive_id: str) -> dict | None:
+    """Get a single drive by ID"""
+    if not is_valid_uuid(drive_id):
+        return None
+    sb = get_supabase()
+    try:
+        result = (
+            sb.table("marketing_drives")
+            .select("*")
+            .eq("id", drive_id)
+            .maybe_single()
+            .execute()
+        )
+        return result.data if result else None
+    except Exception:
+        return None
+
+
+async def get_user_drives(user_id: str) -> list[dict]:
+    """Get all drives posted by a specific user (brand)"""
+    sb = get_supabase()
+    if not is_valid_uuid(user_id):
+        return []
+    result = (
+        sb.table("marketing_drives")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+async def update_drive(drive_id: str, data: dict) -> dict:
+    """Update a drive"""
+    sb = get_supabase()
+    from datetime import datetime
+    data["updated_at"] = datetime.utcnow().isoformat()
+    result = sb.table("marketing_drives").update(data).eq("id", drive_id).execute()
+    return result.data[0] if result.data else {}
+
+
+async def delete_drive(drive_id: str) -> bool:
+    """Delete a drive and all its applications (CASCADE)"""
+    sb = get_supabase()
+    try:
+        sb.table("marketing_drives").delete().eq("id", drive_id).execute()
+        return True
+    except Exception:
+        return False
+
+
+# ======== Drive Applications ========
+
+async def apply_to_drive(data: dict) -> dict:
+    """Creator applies to a marketing drive"""
+    sb = get_supabase()
+    if not is_valid_uuid(data.get("user_id")):
+        data["user_id"] = "00000000-0000-0000-0000-000000000001"
+    result = sb.table("drive_applications").insert(data).execute()
+    return result.data[0] if result.data else {}
+
+
+async def get_drive_applications(drive_id: str) -> list[dict]:
+    """Get all applications for a specific drive"""
+    if not is_valid_uuid(drive_id):
+        return []
+    sb = get_supabase()
+    result = (
+        sb.table("drive_applications")
+        .select("*")
+        .eq("drive_id", drive_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+async def get_user_applications(user_id: str) -> list[dict]:
+    """Get all drive applications by a specific creator"""
+    if not is_valid_uuid(user_id):
+        return []
+    sb = get_supabase()
+    result = (
+        sb.table("drive_applications")
+        .select("*, marketing_drives(*)")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    return result.data or []
+
+
+async def update_application_status(application_id: str, status: str) -> dict:
+    """Brand accepts/rejects a creator application"""
+    sb = get_supabase()
+    result = (
+        sb.table("drive_applications")
+        .update({"status": status})
+        .eq("id", application_id)
+        .execute()
+    )
+    return result.data[0] if result.data else {}
+
+
+async def check_already_applied(drive_id: str, user_id: str) -> bool:
+    """Check if a creator already applied to this drive"""
+    if not is_valid_uuid(drive_id) or not is_valid_uuid(user_id):
+        return False
+    sb = get_supabase()
+    try:
+        result = (
+            sb.table("drive_applications")
+            .select("id")
+            .eq("drive_id", drive_id)
+            .eq("user_id", user_id)
+            .maybe_single()
+            .execute()
+        )
+        return result.data is not None
+    except Exception:
+        return False
 
 
 

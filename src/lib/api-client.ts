@@ -561,4 +561,137 @@ export async function deleteRiskFlag(flagId: string) {
 }
 
 
+// ======== Marketing Drives APIs ========
 
+export interface MarketingDrive {
+    id: string;
+    user_id: string;
+    brand_name: string;
+    title: string;
+    description: string;
+    category: string;
+    location_area: string;
+    city: string;
+    platform_preference: string;
+    target_audience: string[];
+    min_followers: number;
+    min_engagement_rate: number;
+    niche_required: string[];
+    deliverables: string;
+    compensation: string;
+    budget: number;
+    collab_type: string;
+    status: string;
+    deadline: string;
+    max_applications: number;
+    applications_count?: number;
+    applications?: DriveApplication[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DriveApplication {
+    id: string;
+    drive_id: string;
+    user_id: string;
+    creator_name: string;
+    creator_handle: string;
+    creator_platform: string;
+    creator_followers: number;
+    creator_engagement_rate: number;
+    creator_location: string;
+    pitch: string;
+    status: string;
+    created_at: string;
+    marketing_drives?: MarketingDrive;
+}
+
+/** Create a new marketing drive (brand posts a campaign) */
+export async function createDrive(data: {
+    brand_name: string;
+    title: string;
+    description?: string;
+    category?: string;
+    location_area?: string;
+    city?: string;
+    platform_preference?: string;
+    target_audience?: string[];
+    min_followers?: number;
+    min_engagement_rate?: number;
+    niche_required?: string[];
+    deliverables?: string;
+    compensation?: string;
+    budget?: number;
+    collab_type?: string;
+    deadline?: string;
+    max_applications?: number;
+}) {
+    return apiFetch<{ drive: MarketingDrive; message: string }>("/api/drives", {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+}
+
+/** Browse all active drives */
+export async function getDrives(params?: {
+    city?: string;
+    category?: string;
+    status?: string;
+}) {
+    const searchParams = new URLSearchParams();
+    if (params) {
+        Object.entries(params).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== "") searchParams.set(k, String(v));
+        });
+    }
+    const qs = searchParams.toString();
+    return apiFetch<{ drives: MarketingDrive[]; count: number }>(
+        `/api/drives${qs ? `?${qs}` : ""}`
+    );
+}
+
+/** Get drives posted by current user */
+export async function getMyDrives() {
+    return apiFetch<{ drives: MarketingDrive[]; count: number }>("/api/drives/my-drives");
+}
+
+/** Get applications by current user */
+export async function getMyApplications() {
+    return apiFetch<{ applications: DriveApplication[]; count: number }>("/api/drives/my-applications");
+}
+
+/** Get a single drive with applications */
+export async function getDrive(driveId: string) {
+    return apiFetch<MarketingDrive>(`/api/drives/${driveId}`);
+}
+
+/** Apply to a drive as a creator */
+export async function applyToDrive(driveId: string, data: {
+    creator_name?: string;
+    creator_handle?: string;
+    creator_platform?: string;
+    creator_followers?: number;
+    creator_engagement_rate?: number;
+    creator_location?: string;
+    pitch?: string;
+}) {
+    return apiFetch<{ application: DriveApplication; message: string }>(`/api/drives/${driveId}/apply`, {
+        method: "POST",
+        body: JSON.stringify(data),
+    });
+}
+
+/** Delete a drive */
+export async function deleteDrive(driveId: string) {
+    return apiFetch<{ deleted: boolean; message: string }>(`/api/drives/${driveId}`, {
+        method: "DELETE",
+    });
+}
+
+/** Update application status (brand accepts/rejects) */
+export async function updateApplicationStatus(applicationId: string, status: string) {
+    return apiFetch<{ application: DriveApplication; message: string }>(
+        `/api/drives/applications/${applicationId}/status?status=${status}`,
+        { method: "PATCH" }
+    );
+}

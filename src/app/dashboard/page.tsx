@@ -23,6 +23,7 @@ import {
     SlidersHorizontal,
     Star,
     X,
+    Megaphone,
 } from "lucide-react";
 import Link from "next/link";
 import { getAllInfluencers, formatNumber, type InfluencerProfile } from "@/lib/api-client";
@@ -69,12 +70,12 @@ export default function DashboardPage() {
         return () => window.removeEventListener("user-profile-updated", handleProfileUpdate);
     }, []);
 
-    const refreshHyperLocal = (currentProfile: OnboardingProfile) => {
+    const refreshHyperLocal = (currentProfile: OnboardingProfile, realData?: InfluencerProfile[]) => {
         const area = currentProfile.location_area || "Seawoods";
         const city = currentProfile.city || "Navi Mumbai";
         const cat = currentProfile.category || "cafe_restaurant";
 
-        const creators = getHyperLocalCreators(area, city, cat);
+        const creators = getHyperLocalCreators(area, city, cat, realData);
         setHyperLocalCreators(creators);
 
         const opps = getLocalBrandOpportunities(area, city);
@@ -88,21 +89,27 @@ export default function DashboardPage() {
 
         try {
             const data = await getAllInfluencers(10);
-            setInfluencers(data.results || []);
+            const fetchedList = data.results || [];
+            setInfluencers(fetchedList);
 
-            const total = data.count || 0;
+            const total = data.count || fetchedList.length;
             const avgEng =
-                data.results.length > 0
-                    ? data.results.reduce((a, b) => a + (b.engagement_rate || 0), 0) / data.results.length
+                fetchedList.length > 0
+                    ? fetchedList.reduce((a, b) => a + (b.engagement_rate || 0), 0) / fetchedList.length
                     : 4.8;
-            const lowRiskCount = data.results.filter((i) => i.risk_level === "low").length;
+            const lowRiskCount = fetchedList.filter((i) => i.risk_level === "low").length;
 
             setStats({
                 total,
                 avgEngagement: Math.round(avgEng * 10) / 10,
                 lowRisk: lowRiskCount || 4,
-                localMatches: 5,
+                localMatches: fetchedList.length || 5,
             });
+
+            // Re-run hyper-local with real database influencers!
+            if (fetchedList.length > 0) {
+                refreshHyperLocal(currentProfile, fetchedList);
+            }
         } catch {
             // Keep default state
         }
@@ -203,6 +210,15 @@ export default function DashboardPage() {
                     <div className="flex flex-wrap gap-3 pt-2">
                         {isBrand ? (
                             <>
+                                <Link href="/dashboard/drives">
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        className="neo-btn bg-orange-400 text-neo-black px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 shadow-sm"
+                                    >
+                                        <Megaphone size={16} /> Post Marketing Drive
+                                    </motion.button>
+                                </Link>
                                 <a href="#hyper-local-section">
                                     <motion.button
                                         whileHover={{ scale: 1.03 }}
@@ -224,6 +240,15 @@ export default function DashboardPage() {
                             </>
                         ) : (
                             <>
+                                <Link href="/dashboard/drives">
+                                    <motion.button
+                                        whileHover={{ scale: 1.03 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        className="neo-btn bg-orange-400 text-neo-black px-5 py-2.5 rounded-xl text-sm font-black flex items-center gap-2 shadow-sm"
+                                    >
+                                        <Megaphone size={16} /> Explore Marketing Drives
+                                    </motion.button>
+                                </Link>
                                 <a href="#creator-invites-section">
                                     <motion.button
                                         whileHover={{ scale: 1.03 }}
@@ -578,14 +603,14 @@ export default function DashboardPage() {
                     className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)]"
                 >
                     <h3 className="text-lg font-black text-neo-black mb-4 uppercase tracking-tight">Quick Actions</h3>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {[
+                            { label: "Marketing Drives", href: "/dashboard/drives", color: "bg-orange-300" },
                             { label: "Fetch Influencer", href: "/dashboard/search", color: "bg-[var(--color-neo-pink)]" },
                             { label: "Compare Matrix", href: "/dashboard/compare", color: "bg-[var(--color-neo-blue)]" },
                             { label: "Campaign Brief", href: "/dashboard/brief", color: "bg-[var(--color-neo-lavender)]" },
                             { label: "Risk Monitor", href: "/dashboard/risks", color: "bg-[var(--color-neo-yellow)]" },
                             { label: "Audit Reports", href: "/dashboard/reports", color: "bg-[var(--color-neo-green)]" },
-                            { label: "Settings & Profile", href: "/dashboard/settings", color: "bg-amber-200" },
                         ].map((action) => (
                             <Link key={action.label} href={action.href}>
                                 <motion.div

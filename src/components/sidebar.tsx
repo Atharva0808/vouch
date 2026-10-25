@@ -16,12 +16,14 @@ import {
     CreditCard,
     Menu,
     X,
+    Megaphone,
 } from "lucide-react";
 import VouchLogo from "./vouch-logo";
 import { useState } from "react";
 
 const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, color: "bg-neo-yellow" },
+    { label: "Marketing Drives", href: "/dashboard/drives", icon: Megaphone, color: "bg-neo-orange" },
     { label: "Search", href: "/dashboard/search", icon: Search, color: "bg-neo-pink" },
     { label: "Influencers", href: "/dashboard/influencers", icon: Users, color: "bg-neo-blue" },
     { label: "Analytics", href: "/dashboard/analytics", icon: BarChart3, color: "bg-neo-purple" },

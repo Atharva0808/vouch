@@ -47,7 +47,13 @@ function SearchContent() {
             setQuery(initialQ);
             setLoading(true);
             searchInfluencers({ query: initialQ })
-                .then((data) => setResults(data.results))
+                .then((data) => setResults(data.results || []))
+                .catch((err) => setError(err.message))
+                .finally(() => setLoading(false));
+        } else {
+            setLoading(true);
+            searchInfluencers({})
+                .then((data) => setResults(data.results || []))
                 .catch((err) => setError(err.message))
                 .finally(() => setLoading(false));
         }

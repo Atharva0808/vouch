@@ -195,3 +195,32 @@ class CombinedDownloadRequest(BaseModel):
     report_ids: List[str] = Field(..., min_length=1, max_length=20)
 
 
+# ======== Marketing Drives ========
+class CreateDriveRequest(BaseModel):
+    brand_name: str
+    title: str
+    description: str = ""
+    category: str = "general"
+    location_area: str = ""
+    city: str = ""
+    platform_preference: str = "any"  # instagram, youtube, any
+    target_audience: List[str] = []  # age groups / interests
+    min_followers: int = 0
+    min_engagement_rate: float = 0.0
+    niche_required: List[str] = []
+    deliverables: str = ""
+    compensation: str = ""  # e.g. "₹5,000 + Free Meal for 2"
+    budget: float = 0.0  # in INR
+    collab_type: str = "both"  # paid, barter, both
+    deadline: Optional[str] = None  # ISO date string
+    max_applications: int = 50
+
+
+class ApplyToDriveRequest(BaseModel):
+    creator_name: str = ""
+    creator_handle: str = ""
+    creator_platform: str = "instagram"
+    creator_followers: int = 0
+    creator_engagement_rate: float = 0.0
+    creator_location: str = ""
+    pitch: str = ""
