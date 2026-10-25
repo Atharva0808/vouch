@@ -27,14 +27,11 @@ export default function AvatarImg({
     const px = `${size}px`;
     const textSize = size >= 96 ? "text-3xl" : size >= 64 ? "text-xl" : "text-base";
 
-    // Determine the actual image URL to use
-    const imgUrl = getProxiedUrl(src);
+    const cleanHandle = (handle?.replace("@", "") || name || "creator").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const fallbackUrl = `https://i.pravatar.cc/300?u=${cleanHandle || "creator"}`;
+    const initialImgUrl = src ? getProxiedUrl(src) : fallbackUrl;
 
-    const cleanHandle = handle?.replace("@", "") || "";
-    const showFallbackUrl = imageError && cleanHandle && platform === "instagram" && !fallbackError;
-    const fallbackUrl = `https://unavatar.io/instagram/${cleanHandle}`;
-
-    if (!src || (imageError && (!showFallbackUrl || fallbackError))) {
+    if (imageError && fallbackError) {
         return (
             <div
                 style={{ width: px, height: px }}
@@ -45,7 +42,7 @@ export default function AvatarImg({
         );
     }
 
-    if (showFallbackUrl) {
+    if (imageError && !fallbackError) {
         return (
             <img
                 src={fallbackUrl}
@@ -60,7 +57,7 @@ export default function AvatarImg({
 
     return (
         <img
-            src={imgUrl}
+            src={initialImgUrl}
             alt={name}
             style={{ width: px, height: px }}
             className={`${rounded} neo-border object-cover flex-shrink-0`}

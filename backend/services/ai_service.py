@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client: Groq | None = None
-MODEL = "llama-3.1-8b-instant"
+MODEL = "openai/gpt-oss-20b"
 
 
 def get_groq() -> Groq | None:

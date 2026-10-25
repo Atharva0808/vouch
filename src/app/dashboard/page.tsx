@@ -6,15 +6,12 @@ import { useState, useEffect } from "react";
 import {
     Zap,
     Users,
-    TrendingUp,
-    Shield,
     Search,
     Loader,
     MapPin,
     Sparkles,
     CheckCircle,
     Store,
-    ArrowRight,
     Send,
     FileText,
     SlidersHorizontal,
@@ -127,13 +124,6 @@ export default function DashboardPage() {
     const isBrand = profile.account_type === "brand" || !profile.account_type;
     const userCity = profile.city || "Navi Mumbai";
 
-    const statCards = [
-        { label: "Audited Creators", value: stats.total || "20+", icon: Users, color: "bg-[var(--color-neo-pink)]" },
-        { label: "Avg Engagement", value: `${stats.avgEngagement}%`, icon: TrendingUp, color: "bg-[var(--color-neo-blue)]" },
-        { label: `Same City Match (${userCity})`, value: `${cityCreators.length} Verified`, icon: MapPin, color: "bg-[var(--color-neo-yellow)]" },
-        { label: "Audience Safety", value: "96% Authentic", icon: Shield, color: "bg-[var(--color-neo-green)]" },
-    ];
-
     return (
         <div className="space-y-7 pb-14">
             {/* Clean Executive Welcome Banner */}
@@ -232,33 +222,6 @@ export default function DashboardPage() {
                     </div>
                 </div>
             </motion.div>
-
-            {/* Metrics Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {statCards.map((stat, i) => (
-                    <motion.div
-                        key={stat.label}
-                        initial={{ y: 20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.05 * i }}
-                        className="neo-card rounded-2xl p-5 bg-[var(--color-neo-white)]"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className={`p-2.5 ${stat.color} rounded-xl neo-border shadow-sm`}>
-                                <stat.icon size={20} className="text-[var(--color-neo-black)]" />
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-[10px] font-black uppercase text-[var(--color-neo-black)]/50 tracking-wider">
-                                    {stat.label}
-                                </p>
-                                <p className="text-xl sm:text-2xl font-black text-[var(--color-neo-black)] truncate">
-                                    {loading ? "—" : stat.value}
-                                </p>
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
 
             {/* =========================================================================
                 BRAND VIEW: Same-City Audited Creators (City-to-City Match)
@@ -466,97 +429,6 @@ export default function DashboardPage() {
                     )}
                 </section>
             )}
-
-            {/* Quick Actions + Recent Audited Influencers */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Quick Actions */}
-                <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)] space-y-4"
-                >
-                    <h3 className="text-lg font-black text-neo-black uppercase tracking-tight">Quick Actions</h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {[
-                            { label: "Marketing Drives", href: "/dashboard/drives", color: "bg-orange-300" },
-                            { label: "Fetch Influencer", href: "/dashboard/search", color: "bg-[var(--color-neo-pink)]" },
-                            { label: "Compare Matrix", href: "/dashboard/compare", color: "bg-[var(--color-neo-blue)]" },
-                            { label: "Campaign Brief", href: "/dashboard/brief", color: "bg-[var(--color-neo-lavender)]" },
-                            { label: "Risk Monitor", href: "/dashboard/risks", color: "bg-[var(--color-neo-yellow)]" },
-                            { label: "Audit Reports", href: "/dashboard/reports", color: "bg-[var(--color-neo-green)]" },
-                        ].map((action) => (
-                            <Link key={action.label} href={action.href}>
-                                <motion.div
-                                    whileHover={{ scale: 1.03, y: -2 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    className={`${action.color} p-4 rounded-xl neo-border text-center cursor-pointer`}
-                                >
-                                    <p className="text-xs sm:text-sm font-black text-neo-black">{action.label}</p>
-                                </motion.div>
-                            </Link>
-                        ))}
-                    </div>
-                </motion.div>
-
-                {/* Real Verified Audited Influencers from Supabase */}
-                <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)] space-y-4"
-                >
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-black text-neo-black uppercase tracking-tight">Recently Audited Creators</h3>
-                        <Link href="/dashboard/influencers" className="text-xs font-bold text-neo-black/60 hover:text-neo-black flex items-center gap-1">
-                            View All <ArrowRight size={12} />
-                        </Link>
-                    </div>
-
-                    {loading ? (
-                        <div className="flex items-center justify-center h-32">
-                            <Loader className="animate-spin text-[var(--color-neo-pink)]" />
-                        </div>
-                    ) : influencers.length === 0 ? (
-                        <div className="text-center py-8 space-y-2">
-                            <Users size={32} className="mx-auto text-neo-black/20" />
-                            <p className="text-sm font-bold text-neo-black/50">No verified influencers indexed yet</p>
-                            <Link href="/dashboard/search">
-                                <button className="neo-btn bg-[var(--color-neo-yellow)] text-neo-black px-4 py-2 rounded-xl text-xs font-bold">
-                                    Fetch First Influencer
-                                </button>
-                            </Link>
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            {influencers.slice(0, 5).map((inf) => (
-                                <Link key={inf.id} href={`/dashboard/influencer/${inf.id}`}>
-                                    <motion.div
-                                        whileHover={{ x: 4 }}
-                                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-neo-black/5 cursor-pointer transition-colors"
-                                    >
-                                        <AvatarImg
-                                            src={inf.avatar_url}
-                                            name={inf.name}
-                                            handle={inf.handle}
-                                            platform={inf.platform}
-                                            size={36}
-                                            rounded="rounded-xl"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-black truncate text-neo-black">{inf.name}</p>
-                                            <p className="text-[11px] font-semibold text-neo-black/50 truncate">
-                                                {inf.handle} • {formatNumber(inf.followers)} followers
-                                            </p>
-                                        </div>
-                                        <span className="text-[10px] font-black text-neo-black uppercase tracking-wider px-2.5 py-1 rounded-md bg-[var(--color-neo-green)] neo-border">
-                                            Audit Done
-                                        </span>
-                                    </motion.div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </motion.div>
-            </div>
 
             {/* Direct Campaign Invite Modal */}
             <AnimatePresence>

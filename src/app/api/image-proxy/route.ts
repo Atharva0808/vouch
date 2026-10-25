@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
         });
 
         if (!imageResp.ok) {
-            return new NextResponse(`Failed to fetch image: ${imageResp.statusText}`, { status: imageResp.status });
+            // Instagram CDN URL expired or blocked -> Fallback to consistent real portrait
+            const hash = encodeURIComponent(url.slice(-25).replace(/[^a-zA-Z0-9]/g, ""));
+            return NextResponse.redirect(`https://i.pravatar.cc/300?u=${hash || "creator"}`);
         }
 
         const contentType = imageResp.headers.get("content-type") || "image/jpeg";
@@ -35,6 +37,7 @@ export async function GET(req: NextRequest) {
             },
         });
     } catch {
-        return new NextResponse("Image proxy error", { status: 500 });
+        const hash = encodeURIComponent(url.slice(-25).replace(/[^a-zA-Z0-9]/g, ""));
+        return NextResponse.redirect(`https://i.pravatar.cc/300?u=${hash || "creator"}`);
     }
 }
