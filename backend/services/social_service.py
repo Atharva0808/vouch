@@ -162,7 +162,7 @@ async def fetch_instagram_profile(handle: str) -> dict:
             "avg_comments": avg_comments,
             "verified": p_data.get("is_verified", False),
             "bio": bio,
-            "location": "",
+            "location": _detect_location_from_bio_or_captions(bio, full_name, caption_texts),
             "niche": _detect_niche_from_bio(bio, full_name, caption_texts),
             "recent_posts": recent_posts,
         }
@@ -517,6 +517,58 @@ def _detect_niche_from_bio(bio: str, name: str = "", captions: list[str] = None)
     
     deduped = list(dict.fromkeys(niches))
     return deduped[:3]
+
+
+def _detect_location_from_bio_or_captions(bio: str, name: str = "", captions: list[str] = None) -> str:
+    """Intelligently detects Indian and global city/area locations from bio, name, and post captions."""
+    all_text = f"{bio} {name} {' '.join(captions[:5]) if captions else ''}".lower()
+    
+    # Priority 1: Hyper-Local Mumbai / Navi Mumbai / Thane neighborhoods
+    hyper_local_map = {
+        "seawoods": "Seawoods, Navi Mumbai",
+        "kalyan": "Kalyan, Navi Mumbai",
+        "vashi": "Vashi, Navi Mumbai",
+        "nerul": "Nerul, Navi Mumbai",
+        "kharghar": "Kharghar, Navi Mumbai",
+        "belapur": "CBD Belapur, Navi Mumbai",
+        "panvel": "Panvel, Navi Mumbai",
+        "airoli": "Airoli, Navi Mumbai",
+        "ghansoli": "Ghansoli, Navi Mumbai",
+        "dombivli": "Dombivli, Thane",
+        "thane": "Thane, Mumbai MMR",
+        "bandra": "Bandra, Mumbai",
+        "andheri": "Andheri, Mumbai",
+        "juhu": "Juhu, Mumbai",
+        "powai": "Powai, Mumbai",
+        "colaba": "Colaba, Mumbai",
+        "borivali": "Borivali, Mumbai",
+        "dadar": "Dadar, Mumbai",
+        "navi mumbai": "Navi Mumbai, India",
+        "mumbai": "Mumbai, India",
+        "bombay": "Mumbai, India",
+        "pune": "Pune, Maharashtra",
+        "delhi": "Delhi NCR, India",
+        "new delhi": "Delhi NCR, India",
+        "noida": "Noida, Delhi NCR",
+        "gurgaon": "Gurgaon, Delhi NCR",
+        "gurugram": "Gurgaon, Delhi NCR",
+        "bangalore": "Bengaluru, India",
+        "bengaluru": "Bengaluru, India",
+        "hyderabad": "Hyderabad, India",
+        "chennai": "Chennai, India",
+        "kolkata": "Kolkata, India",
+        "ahmedabad": "Ahmedabad, India",
+        "jaipur": "Jaipur, India",
+        "chandigarh": "Chandigarh, India",
+        "goa": "Goa, India",
+    }
+    
+    for term, formatted_location in hyper_local_map.items():
+        pattern = r'\b' + re.escape(term) + r'\b'
+        if re.search(pattern, all_text):
+            return formatted_location
+            
+    return ""
 
 
 def generate_engagement_timeline(profile: dict, days: int = 30) -> list[dict]:

@@ -3,15 +3,17 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Sparkles, Filter, ChevronDown, Loader, Plus, Instagram, Youtube } from "lucide-react";
+import { Search, Sparkles, Filter, ChevronDown, Loader, Plus, Instagram, Youtube, MapPin } from "lucide-react";
 import { fetchInfluencer, searchInfluencers, deleteInfluencer, formatNumber, type InfluencerProfile } from "@/lib/api-client";
 import Link from "next/link";
 import AvatarImg from "@/components/avatar-img";
 import SkeletonShimmer from "@/components/skeleton-shimmer";
+import { getStoredUserProfile } from "@/lib/user-profile";
 
 const platformOptions = ["all", "instagram", "youtube"];
 const nicheOptions = ["all", "Fitness", "Fashion", "Beauty", "Food", "Travel", "Tech", "Gaming", "Lifestyle", "Education"];
 const riskOptions = ["all", "low", "medium", "high"];
+const cityOptions = ["all", "Navi Mumbai", "Mumbai", "Kalyan", "Thane", "Pune", "Bengaluru", "Delhi NCR"];
 
 export default function SearchPage() {
     return (
@@ -25,9 +27,11 @@ function SearchContent() {
     const searchParams = useSearchParams();
     const initialQ = searchParams.get("q") || "";
 
+    const userProfile = getStoredUserProfile();
     const [query, setQuery] = useState(initialQ);
     const [platform, setPlatform] = useState("all");
     const [niche, setNiche] = useState("all");
+    const [locationFilter, setLocationFilter] = useState("all");
     const [riskFilter, setRiskFilter] = useState("all");
     const [showFilters, setShowFilters] = useState(false);
     const [results, setResults] = useState<InfluencerProfile[]>([]);
@@ -50,18 +54,19 @@ function SearchContent() {
     }, [initialQ]);
 
     // Search existing database
-    const handleSearch = async () => {
-        if (!query.trim()) return;
+    const handleSearch = async (locOverride?: string) => {
         setLoading(true);
         setError("");
+        const loc = locOverride !== undefined ? locOverride : (locationFilter !== "all" ? locationFilter : undefined);
         try {
             const data = await searchInfluencers({
-                query,
+                query: query.trim() || undefined,
                 platform: platform !== "all" ? platform : undefined,
                 niche: niche !== "all" ? niche : undefined,
+                location: loc,
                 risk_level: riskFilter !== "all" ? riskFilter : undefined,
             });
-            setResults(data.results);
+            setResults(data.results || []);
         } catch (err: any) {
             setError(err.message || "Search failed");
         }
@@ -197,7 +202,7 @@ function SearchContent() {
                         <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
-                            onClick={handleSearch}
+                            onClick={() => handleSearch()}
                             disabled={loading}
                             className="neo-btn flex-1 sm:flex-none justify-center bg-[var(--color-neo-black)] text-[var(--color-neo-white)] px-8 py-3 rounded-xl text-sm font-bold"
                         >
@@ -214,7 +219,7 @@ function SearchContent() {
                             exit={{ height: 0, opacity: 0 }}
                             className="overflow-hidden"
                         >
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 mt-4 border-t-2 border-[var(--color-neo-black)]/10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 mt-4 border-t-2 border-[var(--color-neo-black)]/10">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-1 block">Platform</label>
                                     <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="neo-input w-full py-2 px-3 rounded-lg text-sm capitalize">
@@ -228,11 +233,39 @@ function SearchContent() {
                                     </select>
                                 </div>
                                 <div>
+                                    <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-1 block">City / Coverage</label>
+                                    <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} className="neo-input w-full py-2 px-3 rounded-lg text-sm">
+                                        {cityOptions.map((c) => (
+                                            <option key={c} value={c}>
+                                                {c === "all" ? "All Locations" : c}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
                                     <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-1 block">Risk Level</label>
                                     <select value={riskFilter} onChange={(e) => setRiskFilter(e.target.value)} className="neo-input w-full py-2 px-3 rounded-lg text-sm capitalize">
                                         {riskOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* Hyper-Local Quick Filter Prompt */}
+                            <div className="flex items-center justify-between pt-3 mt-2 border-t border-[var(--color-neo-black)]/5">
+                                <span className="text-xs font-bold text-neo-black/60 flex items-center gap-1.5">
+                                    <MapPin size={13} className="text-neo-pink" />
+                                    Your Base: <strong>{userProfile?.location_area || userProfile?.city || "Navi Mumbai"}</strong>
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        const loc = userProfile?.location_area || userProfile?.city || "Navi Mumbai";
+                                        setLocationFilter(loc);
+                                        handleSearch(loc);
+                                    }}
+                                    className="neo-btn bg-[var(--color-neo-yellow)] text-neo-black px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1"
+                                >
+                                    <Sparkles size={12} /> Filter Within 15km
+                                </button>
                             </div>
                         </motion.div>
                     )}
@@ -301,6 +334,13 @@ function SearchContent() {
                                                     </span>
                                                 ))}
                                             </div>
+
+                                            {inf.location && (
+                                                <div className="flex items-center gap-1.5 text-[11px] font-bold text-neo-black/70 mb-3 truncate bg-neo-black/5 px-2.5 py-1 rounded-lg">
+                                                    <MapPin size={12} className="text-[var(--color-neo-pink)] shrink-0" />
+                                                    <span className="truncate">{inf.location}</span>
+                                                </div>
+                                            )}
 
                                             <div className="grid grid-cols-3 gap-2 text-center">
                                                 <div className="p-2 bg-[var(--color-neo-black)]/3 rounded-lg">

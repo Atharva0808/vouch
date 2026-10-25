@@ -70,25 +70,30 @@ async def search_influencers(
     query: str = "",
     platform: str | None = None,
     niche: str | None = None,
+    location: str | None = None,
     min_followers: int | None = None,
     max_followers: int | None = None,
     min_engagement: float | None = None,
     risk_level: str | None = None,
 ) -> list[dict]:
     sb = get_supabase()
-    q = sb.table("influencers").select("*").eq("user_id", user_id)
+    q = sb.table("influencers").select("*")
+    if is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
     
     if query:
-        q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%")
+        q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
     if platform:
         q = q.eq("platform", platform)
     if niche:
         # Title case to match niche array entries in DB
         q = q.contains("niche", [niche.capitalize()])
+    if location:
+        q = q.ilike("location", f"%{location}%")
     if min_followers:
         q = q.gte("followers", min_followers)
     elif not query:
-        # Refinement 8: Filter out placeholder test profiles (<100 followers) from default discovery
+        # Filter out placeholder test profiles (<100 followers) from default discovery
         q = q.gte("followers", 100)
     if max_followers:
         q = q.lte("followers", max_followers)
@@ -103,11 +108,12 @@ async def search_influencers(
 
 async def get_all_influencers(user_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
     sb = get_supabase()
+    q = sb.table("influencers").select("*")
+    if is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
+    
     result = (
-        sb.table("influencers")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("match_score", desc=True)
+        q.order("match_score", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )

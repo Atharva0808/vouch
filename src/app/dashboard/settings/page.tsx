@@ -6,6 +6,7 @@ import { User, Mail, Building, Briefcase, Bell, Save, Loader, ShieldAlert, LogOu
 import { useRouter } from "next/navigation";
 import { getUserProfile, updateUserProfile, type UserProfile } from "@/lib/api-client";
 import { createClient } from "@/lib/supabase-browser";
+import { getStoredUserProfile } from "@/lib/user-profile";
 
 export default function SettingsPage() {
     const router = useRouter();
@@ -35,30 +36,27 @@ export default function SettingsPage() {
 
             const userId = user.id;
             const userEmail = user.email || "";
+            const stored = getStoredUserProfile();
 
-            // 2. Try to fetch profile from backend
+            // 2. Try to fetch profile from Supabase & backend
             try {
-                const data = await getUserProfile(userId);
-                setProfile(data);
+                const { data: dbProfile } = await supabase.from("user_profiles").select("*").eq("id", userId).maybeSingle();
+                const data = await getUserProfile(userId).catch(() => null);
+                const mergedProfile: any = { ...stored, ...(dbProfile || {}), ...(data || {}) };
+                setProfile(mergedProfile);
                 setFormData({
-                    full_name: data.full_name || "",
-                    company: data.company || "",
-                    role: data.role || "",
-                    notifications: data.notifications || {}
+                    full_name: mergedProfile.full_name || userEmail.split('@')[0] || "User",
+                    company: mergedProfile.company || mergedProfile.business_name || "",
+                    role: mergedProfile.role || mergedProfile.account_type || "",
+                    notifications: mergedProfile.notifications || {}
                 });
             } catch (err) {
-                console.log("Profile not found in DB, creating default...");
-                // 3. Auto-create if not found
-                const newProfile = await updateUserProfile(userId, {
-                    full_name: userEmail.split('@')[0] || "Admin User",
-                    email: userEmail
-                });
-                setProfile(newProfile);
+                setProfile(stored as any);
                 setFormData({
-                    full_name: newProfile.full_name || "",
-                    company: newProfile.company || "",
-                    role: newProfile.role || "",
-                    notifications: newProfile.notifications || {}
+                    full_name: userEmail.split('@')[0] || "User",
+                    company: stored.business_name || "",
+                    role: stored.account_type || "",
+                    notifications: {}
                 });
             }
         } catch (err: any) {

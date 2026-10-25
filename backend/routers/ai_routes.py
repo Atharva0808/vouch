@@ -29,12 +29,16 @@ async def generate_brief(req: BriefRequest, x_user_id: str | None = Header(None)
         campaign_objective=req.campaign_objective,
         brand_niche=req.brand_niche or "",
         budget=req.budget,
+        brand_location=req.location or "",
+        deliverables=req.deliverables,
+        target_audience=req.target_audience,
     )
     
     # Calculate a REAL match score with actual brand context
     brand_info = {
         "brand_name": req.brand_name,
         "brand_niche": req.brand_niche or "General",
+        "brand_location": req.location or "",
         "campaign_objective": req.campaign_objective,
         "budget": req.budget,
     }

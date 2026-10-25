@@ -124,6 +124,7 @@ export async function searchInfluencers(params: {
     max_followers?: number;
     min_engagement?: number;
     risk_level?: string;
+    location?: string;
 }) {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([k, v]) => {
@@ -229,6 +230,9 @@ export async function generateBrief(params: {
     campaign_objective: string;
     brand_niche?: string;
     budget?: number;
+    location?: string;
+    deliverables?: string[];
+    target_audience?: string[];
 }) {
     return apiFetch<{
         brief: string;

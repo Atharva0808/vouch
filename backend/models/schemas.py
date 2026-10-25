@@ -114,6 +114,9 @@ class BriefRequest(BaseModel):
     campaign_objective: str
     brand_niche: Optional[str] = ""
     budget: Optional[float] = None
+    location: Optional[str] = ""
+    deliverables: Optional[List[str]] = []
+    target_audience: Optional[List[str]] = []
 
 
 class BriefResponse(BaseModel):

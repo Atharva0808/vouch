@@ -2,8 +2,9 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { Copy, Check, FileText, User, Briefcase, Target, Loader } from "lucide-react";
+import { Copy, Check, FileText, User, Briefcase, Target, Loader, MapPin, Sparkles } from "lucide-react";
 import { generateBrief, getAllInfluencers, type InfluencerProfile } from "@/lib/api-client";
+import { getStoredUserProfile, getCategoryLabel, type OnboardingProfile } from "@/lib/user-profile";
 
 function FormattedMarkdown({ content }: { content: string }) {
     if (!content) return null;
@@ -47,10 +48,12 @@ function parseInlineBold(text: string) {
 }
 
 export default function BriefPage() {
+    const [profile, setProfile] = useState<OnboardingProfile>(getStoredUserProfile());
     const [influencers, setInfluencers] = useState<InfluencerProfile[]>([]);
     const [selectedId, setSelectedId] = useState("");
     const [brandName, setBrandName] = useState("");
     const [brandNiche, setBrandNiche] = useState("");
+    const [locationText, setLocationText] = useState("");
     const [objective, setObjective] = useState("");
     const [budget, setBudget] = useState("");
     const [brief, setBrief] = useState("");
@@ -60,13 +63,59 @@ export default function BriefPage() {
     const [matchData, setMatchData] = useState<{ score: number; recommendation: string; reasoning: string } | null>(null);
 
     useEffect(() => {
+        const userProf = getStoredUserProfile();
+        setProfile(userProf);
+
+        if (userProf.business_name) {
+            setBrandName(userProf.business_name);
+        }
+        if (userProf.category) {
+            setBrandNiche(getCategoryLabel(userProf.category));
+        }
+
+        const loc = userProf.location_area
+            ? `${userProf.location_area}, ${userProf.city || "Navi Mumbai"}`
+            : userProf.city || "Navi Mumbai";
+        setLocationText(loc);
+
+        // Pre-fill objective tailored to their hyper-local area
+        setObjective(
+            `Drive in-person footfall and high-converting local community awareness to our store in ${loc} through engaging Instagram Reels and authentic creator visits.`
+        );
+
+        // Extract budget numbers if string
+        if (userProf.budget_range) {
+            const numbers = userProf.budget_range.replace(/[^0-9]/g, " ").trim().split(/\s+/).filter(Boolean);
+            if (numbers.length > 0) {
+                setBudget(numbers[0]);
+            }
+        }
+
         loadInfluencers();
     }, []);
 
     const loadInfluencers = async () => {
         try {
             const data = await getAllInfluencers(50);
-            setInfluencers(data.results);
+            setInfluencers(data.results || []);
+
+            // Check URL query parameters for pre-selected creator
+            if (typeof window !== "undefined") {
+                const urlParams = new URLSearchParams(window.location.search);
+                const queryHandle = urlParams.get("creator")?.toLowerCase().replace("@", "");
+                if (queryHandle && data.results && data.results.length > 0) {
+                    const found = data.results.find((inf) =>
+                        inf.handle.toLowerCase().includes(queryHandle) || inf.name.toLowerCase().includes(queryHandle)
+                    );
+                    if (found) {
+                        setSelectedId(found.id);
+                    } else if (data.results.length > 0) {
+                        setSelectedId(data.results[0].id);
+                    }
+                } else if (data.results && data.results.length > 0 && !selectedId) {
+                    setSelectedId(data.results[0].id);
+                }
+            }
         } catch {
             // Backend not running
         }
@@ -89,6 +138,9 @@ export default function BriefPage() {
                 campaign_objective: objective,
                 brand_niche: brandNiche,
                 budget: budget ? parseFloat(budget) : undefined,
+                location: locationText,
+                deliverables: profile.deliverables || ["reels", "visit"],
+                target_audience: profile.target_age || ["18-24", "25-34"],
             });
             setBrief(result.brief);
             if (result.report_id) {
@@ -140,6 +192,19 @@ export default function BriefPage() {
                 transition={{ delay: 0.1 }}
                 className="neo-card rounded-2xl p-6 bg-[var(--color-neo-white)]"
             >
+                {/* Onboarding Context Alert */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-3.5 mb-5 rounded-xl bg-[var(--color-neo-yellow)]/20 neo-border text-xs">
+                    <div className="flex items-center gap-2 font-bold text-neo-black">
+                        <Sparkles size={16} className="text-[var(--color-neo-pink)] shrink-0" />
+                        <span>
+                            Strategy auto-calibrated for <strong className="font-black">{brandName || "your brand"}</strong> in <strong className="font-black">{locationText}</strong>
+                        </span>
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-neo-white neo-border">
+                        Hyper-Local Footfall Mode Active
+                    </span>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     {/* Influencer Select */}
                     <div>
@@ -182,13 +247,27 @@ export default function BriefPage() {
                     {/* Brand Niche */}
                     <div>
                         <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-2 block">
-                            BRAND NICHE (optional)
+                            BRAND NICHE / CATEGORY
                         </label>
                         <input
                             type="text"
                             value={brandNiche}
                             onChange={(e) => setBrandNiche(e.target.value)}
-                            placeholder="e.g. Sportswear, Beauty, Technology..."
+                            placeholder="e.g. Cafe & Dining, Fashion, Fitness..."
+                            className="neo-input w-full py-3 px-4 rounded-xl text-sm"
+                        />
+                    </div>
+
+                    {/* Campaign Location (Area & City) */}
+                    <div>
+                        <label className="text-[10px] font-bold uppercase text-[var(--color-neo-black)]/40 mb-2 flex items-center gap-1 block">
+                            <MapPin size={12} /> TARGET LOCATION (AREA & CITY)
+                        </label>
+                        <input
+                            type="text"
+                            value={locationText}
+                            onChange={(e) => setLocationText(e.target.value)}
+                            placeholder="e.g. Seawoods, Navi Mumbai"
                             className="neo-input w-full py-3 px-4 rounded-xl text-sm"
                         />
                     </div>

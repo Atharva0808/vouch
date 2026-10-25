@@ -16,17 +16,20 @@ import {
     Trash2,
     RefreshCw,
     Shield,
+    MapPin,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { getActivityFeed, type Activity } from "@/lib/api-client";
+import { getStoredUserProfile, type OnboardingProfile } from "@/lib/user-profile";
 
 export default function TopBar() {
     const router = useRouter();
     const [searchValue, setSearchValue] = useState("");
     const [userName, setUserName] = useState("User");
+    const [userProfile, setUserProfile] = useState<OnboardingProfile | null>(null);
     const [showNotifs, setShowNotifs] = useState(false);
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [notifications, setNotifications] = useState<Activity[]>([]);
@@ -59,10 +62,17 @@ export default function TopBar() {
     }, []);
 
     const loadUser = async () => {
+        const stored = getStoredUserProfile();
+        if (stored) {
+            setUserProfile(stored);
+            if (stored.business_name) {
+                setUserName(stored.business_name);
+            }
+        }
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-            setUserName(user.user_metadata?.full_name || user.email?.split("@")[0] || "User");
+            setUserName(user.user_metadata?.full_name || stored?.business_name || user.email?.split("@")[0] || "User");
         }
     };
 
@@ -163,6 +173,23 @@ export default function TopBar() {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+                    {/* Hyper-Local Location Badge */}
+                    <Link
+                        href="/dashboard/settings"
+                        title="Hyper-Local Match Engine active within 15 km"
+                        className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl neo-border bg-[var(--color-neo-yellow)]/20 hover:bg-[var(--color-neo-yellow)] transition-colors text-xs font-black text-neo-black shrink-0"
+                    >
+                        <MapPin size={14} className="text-[var(--color-neo-pink)] shrink-0" />
+                        <span className="truncate max-w-[130px] md:max-w-[180px]">
+                            {userProfile?.location_area
+                                ? `${userProfile.location_area}, ${userProfile.city}`
+                                : (userProfile?.city || "Navi Mumbai")}
+                        </span>
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-neo-white neo-border hidden lg:inline">
+                            15km Radius
+                        </span>
+                    </Link>
+
                     {/* Notifications */}
                     <div ref={notifRef} className="relative">
                         <motion.button

@@ -1037,8 +1037,17 @@ Return JSON:
 
 # ======== Campaign Brief Generation ========
 
-async def generate_brief(influencer: dict, brand_name: str, campaign_objective: str, brand_niche: str = "", budget: float = None) -> str:
-    """Generate a highly detailed, professional AI campaign brief for an influencer using Groq LLM"""
+async def generate_brief(
+    influencer: dict,
+    brand_name: str,
+    campaign_objective: str,
+    brand_niche: str = "",
+    budget: float = None,
+    brand_location: str = "",
+    deliverables: list[str] = None,
+    target_audience: list[str] = None,
+) -> str:
+    """Generate a highly detailed, professional AI campaign brief for an influencer using Groq LLM with hyper-local context"""
     ai = get_groq()
     name = influencer.get("name", "Creator")
     handle = influencer.get("handle", "")
@@ -1046,19 +1055,27 @@ async def generate_brief(influencer: dict, brand_name: str, campaign_objective: 
     followers = influencer.get("followers", 0)
     er = influencer.get("engagement_rate", 0.0)
     niche = ", ".join(influencer.get("niche", ["General"]))
+    creator_loc = influencer.get("location", "")
+    
+    deliv_str = ", ".join(deliverables) if deliverables else "Instagram Reels, Store Visit Experience"
+    aud_str = ", ".join(target_audience) if target_audience else "Gen-Z & Millennials (18-34)"
 
-    prompt = f"""You are a senior VP of Influencer Strategy & Campaign Planning.
+    prompt = f"""You are a senior VP of Influencer Strategy & Hyper-Local Campaign Planning.
 Generate a comprehensive, professional, highly actionable Influencer Marketing Campaign Brief for a partnership between Brand '{brand_name}' and Creator '{name}' (@{handle} on {platform}).
 
 Campaign Context:
 - Brand Name: {brand_name}
-- Brand Niche: {brand_niche or 'General'}
+- Brand Location / Coverage: {brand_location or 'Mumbai Metropolitan Region'}
+- Brand Niche / Category: {brand_niche or 'General'}
 - Campaign Objective: {campaign_objective}
+- Target Demographics: {aud_str}
+- Preferred Deliverables: {deliv_str}
 - Campaign Budget: {f'₹{budget:,.0f}' if budget else 'Standard Commercial Tier'}
 
 Creator Profile:
 - Name: {name} (@{handle})
 - Platform: {platform}
+- Location: {creator_loc or 'Local City Creator'}
 - Followers: {followers:,}
 - Engagement Rate: {er}%
 - Creator Niche: {niche}
@@ -1069,19 +1086,22 @@ Generate a Markdown Campaign Brief structured cleanly with the following section
 ## 1. Executive Summary & Partnership Vision
 Explain why {name} (@{handle}) is strategically selected for {brand_name}'s {campaign_objective} campaign.
 
-## 2. Target Audience Alignment & Positioning
-Analyze how {name}'s {followers:,} audience and {er}% engagement align with {brand_name}'s target demographic.
+## 2. Target Audience Alignment & Demographics
+Analyze how {name}'s {followers:,} audience and {er}% engagement align with {brand_name}'s demographic ({aud_str}).
 
-## 3. Core Deliverables & Content Strategy
-Outline 3 specific, highly creative content concepts (e.g. Instagram Reels, Stories, YouTube Integration) tailored to {name}'s authentic style.
+## 3. Hyper-Local Strategy & In-Store Footfall Activation
+Detail specific tactics to drive real customer footfall and physical store visits to {brand_name} in {brand_location or 'the local area'}, leveraging {name}'s local influence.
 
-## 4. Key Messaging & Do's / Don'ts
+## 4. Core Deliverables & Content Strategy
+Outline 3 specific, highly creative content concepts ({deliv_str}) tailored to {name}'s authentic style.
+
+## 5. Key Messaging & Do's / Don'ts
 - **Key Talking Points**: 3-4 mandatory brand messages.
 - **Do's**: Creative best practices.
 - **Don'ts**: Strictly prohibited claims or competitor references.
 
-## 5. Performance KPIs & Success Metrics
-Specify measurable target metrics (Target Impressions, Engagement %, Conversion Goal).
+## 6. Performance KPIs & Success Metrics
+Specify measurable target metrics (Target Footfall/Impressions, Engagement %, Conversion Goal).
 
 Keep the language professional, encouraging, and razor-sharp. Use markdown headings (#, ##) and bullet points (-)."""
 
