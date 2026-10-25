@@ -101,11 +101,27 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         profile["risk_level"] = risk_result.get("overall_risk", "medium")
         
         # Calculate bot percentage from REAL metrics (don't trust AI's lazy 5% default)
-        followers = profile.get("followers", 0)
-        avg_likes = profile.get("avg_likes", 0)
-        avg_comments = profile.get("avg_comments", 0)
-        following = profile.get("following", 0)
-        er = profile.get("engagement_rate", 0)
+        followers = profile.get("followers", 0) or 0
+        er = profile.get("engagement_rate", 0) or 0
+        avg_likes = profile.get("avg_likes", 0) or 0
+        if avg_likes <= 0 and followers > 0:
+            eff_er = er if er > 0 else 2.2
+            avg_likes = max(1, int(followers * (eff_er / 100) * 0.95))
+            profile["avg_likes"] = avg_likes
+
+        avg_comments = profile.get("avg_comments", 0) or 0
+        if avg_comments <= 0 and followers > 0:
+            avg_comments = max(1, int(avg_likes * 0.05))
+            profile["avg_comments"] = avg_comments
+
+        if not profile.get("suggested_price") or profile.get("suggested_price") <= 0:
+            if followers >= 10000000: base_price = int(followers * 0.12)
+            elif followers >= 1000000: base_price = int(followers * 0.18)
+            elif followers >= 100000: base_price = int(followers * 0.22)
+            else: base_price = max(3000, int(followers * 0.25))
+            profile["suggested_price"] = base_price
+
+        following = profile.get("following", 0) or 0
         platform_name = (profile.get("platform") or "instagram").lower()
         
         bot_score = 0  # 0-100 scale
@@ -480,19 +496,38 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
         if n >= 100000: return f"{n/100000:.2f}L"
         return f"{int(n):,}"
     
-    f_a, f_b = profile_a.get("followers", 0), profile_b.get("followers", 0)
-    er_a, er_b = profile_a.get("engagement_rate", 0), profile_b.get("engagement_rate", 0)
-    l_a, l_b = profile_a.get("avg_likes", 0), profile_b.get("avg_likes", 0)
-    roi_a, roi_b = profile_a.get("predicted_roi", 0), profile_b.get("predicted_roi", 0)
-    bot_a, bot_b = profile_a.get("bot_percentage", 0), profile_b.get("bot_percentage", 0)
+    f_a, f_b = profile_a.get("followers", 0) or 0, profile_b.get("followers", 0) or 0
+    er_a, er_b = profile_a.get("engagement_rate", 0) or 0, profile_b.get("engagement_rate", 0) or 0
+    l_a, l_b = profile_a.get("avg_likes", 0) or 0, profile_b.get("avg_likes", 0) or 0
+    roi_a, roi_b = profile_a.get("predicted_roi", 0) or 0, profile_b.get("predicted_roi", 0) or 0
+    bot_a, bot_b = profile_a.get("bot_percentage", 0) or 0, profile_b.get("bot_percentage", 0) or 0
+
+    # Dynamic fallback: If Avg Likes is 0 in database, derive realistically from followers & ER
+    if l_a <= 0 and f_a > 0:
+        eff_er_a = er_a if er_a > 0 else 2.2
+        l_a = max(1, int(f_a * (eff_er_a / 100) * 0.95))
+    if l_b <= 0 and f_b > 0:
+        eff_er_b = er_b if er_b > 0 else 2.2
+        l_b = max(1, int(f_b * (eff_er_b / 100) * 0.95))
 
     # Platform benchmark multipliers for fair cross-platform comparison
     benchmarks = {"youtube": 3.0, "instagram": 2.2}
     norm_er_a = er_a / benchmarks.get(profile_a.get("platform", "").lower(), 2.5)
     norm_er_b = er_b / benchmarks.get(profile_b.get("platform", "").lower(), 2.5)
 
-    cpe_a = round((profile_a.get("suggested_price", 1000) / max(1, l_a)), 2) if l_a > 0 else 0
-    cpe_b = round((profile_b.get("suggested_price", 1000) / max(1, l_b)), 2) if l_b > 0 else 0
+    def get_market_rate(followers: int, custom_price: any) -> int:
+        if isinstance(custom_price, (int, float)) and custom_price > 1000:
+            return int(custom_price)
+        if followers >= 10000000: return int(followers * 0.12)
+        elif followers >= 1000000: return int(followers * 0.18)
+        elif followers >= 100000: return int(followers * 0.22)
+        else: return max(3000, int(followers * 0.25))
+
+    rate_a = get_market_rate(f_a, profile_a.get("suggested_price"))
+    rate_b = get_market_rate(f_b, profile_b.get("suggested_price"))
+
+    cpe_a = round(rate_a / max(1, l_a), 2)
+    cpe_b = round(rate_b / max(1, l_b), 2)
 
     def get_tier(followers):
         if followers >= 50000000: return "Global Icon"
