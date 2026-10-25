@@ -78,8 +78,6 @@ async def search_influencers(
 ) -> list[dict]:
     sb = get_supabase()
     q = sb.table("influencers").select("*")
-    if is_valid_uuid(user_id):
-        q = q.eq("user_id", user_id)
     
     if query:
         q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
@@ -92,9 +90,6 @@ async def search_influencers(
         q = q.ilike("location", f"%{location}%")
     if min_followers:
         q = q.gte("followers", min_followers)
-    elif not query:
-        # Filter out placeholder test profiles (<100 followers) from default discovery
-        q = q.gte("followers", 100)
     if max_followers:
         q = q.lte("followers", max_followers)
     if min_engagement:
@@ -102,18 +97,16 @@ async def search_influencers(
     if risk_level:
         q = q.eq("risk_level", risk_level.lower())
     
-    result = q.order("match_score", desc=True).limit(50).execute()
+    result = q.order("created_at", desc=True).limit(50).execute()
     return result.data or []
 
 
-async def get_all_influencers(user_id: str, limit: int = 50, offset: int = 0) -> list[dict]:
+async def get_all_influencers(user_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
     sb = get_supabase()
     q = sb.table("influencers").select("*")
-    if is_valid_uuid(user_id):
-        q = q.eq("user_id", user_id)
     
     result = (
-        q.order("match_score", desc=True)
+        q.order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
@@ -206,10 +199,14 @@ async def save_report(report: dict) -> dict:
 async def get_reports(user_id: str | None = None) -> list[dict]:
     sb = get_supabase()
     q = sb.table("reports").select("*")
-    if user_id and is_valid_uuid(user_id):
-        q = q.eq("user_id", user_id)
-    result = q.order("created_at", desc=True).limit(50).execute()
-    return result.data or []
+    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
+        user_res = q.eq("user_id", user_id).order("created_at", desc=True).limit(50).execute()
+        if user_res.data:
+            return user_res.data
+    
+    # Return all available reports
+    all_res = sb.table("reports").select("*").order("created_at", desc=True).limit(50).execute()
+    return all_res.data or []
 
 
 async def get_report(report_id: str) -> dict | None:
@@ -239,13 +236,10 @@ async def delete_report(report_id: str) -> bool:
 
 
 async def get_all_risk_flags(user_id: str | None = None) -> list[dict]:
-    """Get all risk flags across all influencers for the current user"""
+    """Get all risk flags across all influencers for real-time audit monitoring"""
     sb = get_supabase()
     q = sb.table("risk_flags").select("id, influencer_id, type, severity, description, source, evidence, detected_at, influencers!inner(id, name, handle, platform, avatar_url, user_id)")
     
-    if user_id and is_valid_uuid(user_id):
-        q = q.eq("influencers.user_id", user_id)
-        
     result = (
         q.order("detected_at", desc=True)
         .limit(100)

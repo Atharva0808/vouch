@@ -173,20 +173,18 @@ export default function TopBar() {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2 sm:gap-3 ml-auto">
-                    {/* Hyper-Local Location Badge */}
+                    {/* Same-City Match Badge */}
                     <Link
                         href="/dashboard/settings"
-                        title="Hyper-Local Match Engine active within 15 km"
+                        title={`Same-City Matching active for ${userProfile?.city || "Navi Mumbai"}`}
                         className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl neo-border bg-[var(--color-neo-yellow)]/20 hover:bg-[var(--color-neo-yellow)] transition-colors text-xs font-black text-neo-black shrink-0"
                     >
                         <MapPin size={14} className="text-[var(--color-neo-pink)] shrink-0" />
                         <span className="truncate max-w-[130px] md:max-w-[180px]">
-                            {userProfile?.location_area
-                                ? `${userProfile.location_area}, ${userProfile.city}`
-                                : (userProfile?.city || "Navi Mumbai")}
+                            {userProfile?.city || "Navi Mumbai"}
                         </span>
                         <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-neo-white neo-border hidden lg:inline">
-                            15km Radius
+                            Same City
                         </span>
                     </Link>
 

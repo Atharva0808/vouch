@@ -17,16 +17,15 @@ router = APIRouter(prefix="/api/influencers", tags=["Influencers"])
 
 DEFAULT_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001"
 
-def get_effective_user_id(x_user_id: str | None) -> str:
-    return x_user_id.strip() if x_user_id and x_user_id.strip() else DEFAULT_DEMO_USER_ID
+def get_effective_user_id(x_user_id: any) -> str:
+    if isinstance(x_user_id, str) and x_user_id.strip() and x_user_id.strip() != "undefined":
+        return x_user_id.strip()
+    return DEFAULT_DEMO_USER_ID
 
 def check_influencer_access(profile: dict | None, effective_user_id: str) -> bool:
     if not profile:
         return False
-    owner_id = profile.get("user_id")
-    if not owner_id or owner_id == DEFAULT_DEMO_USER_ID or effective_user_id == DEFAULT_DEMO_USER_ID:
-        return True
-    return owner_id == effective_user_id
+    return True
 
 
 @router.post("/fetch", response_model=dict)

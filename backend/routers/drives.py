@@ -12,8 +12,10 @@ router = APIRouter(prefix="/api/drives", tags=["Marketing Drives"])
 DEFAULT_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 
-def get_effective_user_id(x_user_id: str | None) -> str:
-    return x_user_id.strip() if x_user_id and x_user_id.strip() else DEFAULT_DEMO_USER_ID
+def get_effective_user_id(x_user_id: any) -> str:
+    if isinstance(x_user_id, str) and x_user_id.strip() and x_user_id.strip() != "undefined":
+        return x_user_id.strip()
+    return DEFAULT_DEMO_USER_ID
 
 
 # ======== Drive CRUD (Brand side) ========

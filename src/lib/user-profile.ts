@@ -1,7 +1,7 @@
 /**
- * User Profile & Hyper-Local Matching Engine Helper
+ * User Profile & Same-City Matching Engine Helper
  * Persists onboarding data, provides seamless local/remote profile access,
- * and powers the Hyper-Local Creator Matching Engine within 15 km of the user's location.
+ * and powers the Same-City Brand & Creator Matching Engine.
  */
 
 export interface OnboardingProfile {
@@ -22,66 +22,48 @@ export interface OnboardingProfile {
     updated_at?: string;
 }
 
-export interface HyperLocalCreator {
+export interface CityCreator {
     id: string;
     name: string;
     handle: string;
     platform: "instagram" | "youtube";
     avatar_url: string;
-    location_area: string;
     city: string;
-    distance_km: number;
     followers: number;
     engagement_rate: number;
     match_score: number;
-    footfall_rating: number; // e.g. 4.9
-    local_reach_pct: number; // e.g. 96%
     niche: string[];
     rate_quote: string;
-    verified_store_visitor: boolean;
-    collab_types: string[];
-}
-
-export interface LocalBrandOpportunity {
-    id: string;
-    brand_name: string;
-    category: string;
-    location_area: string;
-    city: string;
-    distance_km: number;
-    campaign_title: string;
-    deliverable: string;
-    compensation: string; // e.g. "₹5,000 + Free Meal for 2"
-    urgency: string; // e.g. "Visiting this weekend"
-    collab_type: "paid" | "barter" | "both";
+    verified: boolean;
+    same_city: boolean;
 }
 
 const DEFAULT_BRAND_PROFILE: OnboardingProfile = {
     account_type: "brand",
-    business_name: "The Roasted Bean Cafe",
+    business_name: "Brand Partner",
     category: "cafe_restaurant",
-    location_area: "Seawoods",
+    location_area: "Central",
     city: "Navi Mumbai",
     target_age: ["18-24", "25-34"],
-    interests: ["🍔 Foodie / Cafes", "🌿 Lifestyle & Vlogs", "👗 Fashion & Style"],
+    interests: ["Food", "Lifestyle", "Fashion"],
     collaboration_type: "both",
-    deliverables: ["reels", "visit"],
-    budget_range: "₹20,000 - ₹50,000",
+    deliverables: ["reels", "stories"],
+    budget_range: "₹25,000 - ₹50,000",
     onboarding_completed: true,
 };
 
 const DEFAULT_CREATOR_PROFILE: OnboardingProfile = {
     account_type: "influencer",
-    business_name: "Rohit Vlogs",
-    social_handle: "@rohit_navimumbai",
+    business_name: "Creator",
+    social_handle: "@creator",
     primary_platform: "instagram",
     category: "cafe_restaurant",
-    location_area: "Kalyan",
+    location_area: "Central",
     city: "Navi Mumbai",
     collaboration_type: "both",
-    deliverables: ["reels", "stories", "visit"],
+    deliverables: ["reels", "stories"],
     rates: "₹3,500 / Reel",
-    budget_range: "₹2,000 - ₹5,000 / Reel",
+    budget_range: "₹3,000 - ₹6,000 / Reel",
     onboarding_completed: true,
 };
 
@@ -94,7 +76,7 @@ export function getStoredUserProfile(): OnboardingProfile {
         const stored = localStorage.getItem("vouch_user_profile");
         if (stored) {
             const parsed = JSON.parse(stored);
-            if (parsed && (parsed.business_name || parsed.location_area || parsed.city)) {
+            if (parsed && (parsed.business_name || parsed.city)) {
                 return {
                     ...DEFAULT_BRAND_PROFILE,
                     ...parsed,
@@ -148,15 +130,13 @@ export function getCategoryLabel(catId: string = ""): string {
 }
 
 /**
- * Generate Curated Hyper-Local Creators matching within 15 km of the brand's area & city.
- * Dynamic proximity calibration based on user's entered area and city.
- * Seamlessly integrates real influencers fetched from Supabase / RapidAPI if provided.
+ * Maps real indexed influencers from the database to city-matched creators.
+ * If Brand City == Creator City, marks them as Same-City Match!
+ * NO hardcoded fake creators.
  */
-export function getHyperLocalCreators(
-    userArea: string = "Seawoods",
+export function getCityMatchedCreators(
     userCity: string = "Navi Mumbai",
-    category: string = "cafe_restaurant",
-    realInfluencers?: Array<{
+    realInfluencers: Array<{
         id: string;
         name: string;
         handle: string;
@@ -166,205 +146,33 @@ export function getHyperLocalCreators(
         engagement_rate: number;
         niche: string[];
         location?: string;
-    }>
-): HyperLocalCreator[] {
-    const cleanArea = (userArea || "Seawoods").trim();
-    const cleanCity = (userCity || "Navi Mumbai").trim();
+        match_score?: number;
+    }> = []
+): CityCreator[] {
+    const cleanUserCity = (userCity || "Navi Mumbai").trim().toLowerCase();
 
-    // If real influencers exist in the database, convert them to hyper-local verified creators first!
-    if (realInfluencers && realInfluencers.length > 0) {
-        return realInfluencers.map((inf, idx) => {
-            const distance = Math.round((1.2 + (idx * 1.7) % 12) * 10) / 10;
-            const matchScore = Math.max(82, Math.min(99, Math.round(98 - idx * 3 + (inf.engagement_rate || 4))));
-            const footfall = Math.round((4.4 + ((idx * 0.3) % 0.6)) * 10) / 10;
-            const localReach = Math.min(98, Math.max(82, Math.round(94 - idx * 2)));
-            // Realistic Indian creator rate quote calculation
-            const estimatedRate = Math.max(2500, Math.round((inf.followers * 0.045) / 500) * 500);
+    return (realInfluencers || []).map((inf, idx) => {
+        const infLocation = (inf.location || "").trim();
+        const infCity = infLocation || userCity;
+        const isSameCity = infLocation.toLowerCase().includes(cleanUserCity) || cleanUserCity.includes(infLocation.toLowerCase()) || !infLocation;
 
-            return {
-                id: inf.id || `real-${idx}`,
-                name: inf.name || inf.handle,
-                handle: inf.handle.startsWith("@") ? inf.handle : `@${inf.handle}`,
-                platform: (inf.platform === "youtube" ? "youtube" : "instagram") as "instagram" | "youtube",
-                avatar_url: inf.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
-                location_area: inf.location && inf.location !== "India" ? inf.location : (idx % 2 === 0 ? cleanArea : `${cleanArea} Sector ${idx + 2}`),
-                city: cleanCity,
-                distance_km: distance,
-                followers: inf.followers || 25000,
-                engagement_rate: Math.round((inf.engagement_rate || 4.2) * 10) / 10,
-                match_score: matchScore,
-                footfall_rating: Math.min(5.0, footfall),
-                local_reach_pct: localReach,
-                niche: inf.niche && inf.niche.length > 0 ? inf.niche : ["Lifestyle", "Local Spots"],
-                rate_quote: `₹${estimatedRate.toLocaleString("en-IN")} / Reel`,
-                verified_store_visitor: true,
-                collab_types: ["Store Visit", "In-Person Reel", "Brand Story"],
-            };
-        });
-    }
+        const followers = inf.followers || 0;
+        const estimatedRate = Math.max(2500, Math.round((followers * 0.045) / 500) * 500);
 
-    // Pool of verified hyper-local creators calibrated for Mumbai / Navi Mumbai / Thane / Pune
-    const creatorPool: HyperLocalCreator[] = [
-        {
-            id: "hl-1",
-            name: "Neha Sharma",
-            handle: "@neha_eats_navimumbai",
-            platform: "instagram",
-            avatar_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
-            location_area: cleanArea.toLowerCase().includes("kalyan") ? "Kalyan West" : "Seawoods Grand Central",
-            city: cleanCity,
-            distance_km: 1.6,
-            followers: 68400,
-            engagement_rate: 5.4,
-            match_score: 98,
-            footfall_rating: 4.9,
-            local_reach_pct: 94,
-            niche: ["Food", "Cafe & Dining", "Lifestyle"],
-            rate_quote: "₹3,500 / Reel",
-            verified_store_visitor: true,
-            collab_types: ["Store Visit", "Instagram Reel", "Food Tasting"],
-        },
-        {
-            id: "hl-2",
-            name: "Rohit & Ananya",
-            handle: "@mumbaifoodexplorers",
-            platform: "instagram",
-            avatar_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-            location_area: "Vashi Sector 17",
-            city: cleanCity,
-            distance_km: 5.8,
-            followers: 124000,
-            engagement_rate: 4.9,
-            match_score: 96,
-            footfall_rating: 4.8,
-            local_reach_pct: 91,
-            niche: ["Food", "Store Launches", "Travel"],
-            rate_quote: "₹6,000 / Reel + Story",
-            verified_store_visitor: true,
-            collab_types: ["Store Visit", "Launch Event", "Reels"],
-        },
-        {
-            id: "hl-3",
-            name: "Pooja Kulkarni",
-            handle: "@pooja_vibecheck",
-            platform: "instagram",
-            avatar_url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
-            location_area: "Nerul Palm Beach",
-            city: cleanCity,
-            distance_km: 3.2,
-            followers: 43200,
-            engagement_rate: 6.2,
-            match_score: 94,
-            footfall_rating: 4.7,
-            local_reach_pct: 97,
-            niche: ["Fashion", "Aesthetics", "Cafes"],
-            rate_quote: "₹3,000 / Reel",
-            verified_store_visitor: true,
-            collab_types: ["Try-on Haul", "Store Visit", "Stories"],
-        },
-        {
-            id: "hl-4",
-            name: "Sameer Shaikh",
-            handle: "@navimumbaifit",
-            platform: "instagram",
-            avatar_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
-            location_area: "Belapur CBD",
-            city: cleanCity,
-            distance_km: 4.5,
-            followers: 51800,
-            engagement_rate: 4.7,
-            match_score: 91,
-            footfall_rating: 4.6,
-            local_reach_pct: 88,
-            niche: ["Fitness", "Nutrition", "Gym"],
-            rate_quote: "₹4,000 / Reel",
-            verified_store_visitor: true,
-            collab_types: ["Workout Demo", "Store Visit", "Reels"],
-        },
-        {
-            id: "hl-5",
-            name: "Aaditya Patil",
-            handle: "@aadityavlogs_official",
-            platform: "youtube",
-            avatar_url: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=150&h=150&fit=crop&crop=face",
-            location_area: cleanArea.toLowerCase().includes("kalyan") ? "Dombivli / Kalyan" : "Kharghar Central Park",
-            city: cleanCity,
-            distance_km: 8.4,
-            followers: 185000,
-            engagement_rate: 4.1,
-            match_score: 89,
-            footfall_rating: 4.5,
-            local_reach_pct: 86,
-            niche: ["Local Vlogs", "Street Food", "Tech"],
-            rate_quote: "₹7,500 / Dedicated Video",
-            verified_store_visitor: true,
-            collab_types: ["Dedicated Review", "Store Experience"],
-        },
-    ];
-
-    return creatorPool;
-}
-
-/**
- * Generate Local Store Invites & Brand Opportunities for Creators based on their location.
- * Fulfills Image 2 ("Crucial to match you with nearby cafes, fashion boutiques, gyms in your city").
- */
-export function getLocalBrandOpportunities(userArea: string = "Kalyan", userCity: string = "Navi Mumbai"): LocalBrandOpportunity[] {
-    const cleanArea = (userArea || "Kalyan").trim();
-    const cleanCity = (userCity || "Navi Mumbai").trim();
-
-    return [
-        {
-            id: "opp-1",
-            brand_name: "The Roastery Artisan Cafe",
-            category: "Cafe & Bakery",
-            location_area: cleanArea,
-            city: cleanCity,
-            distance_km: 1.2,
-            campaign_title: "New Branch Launch & Tasting Event",
-            deliverable: "1 In-Person Store Visit Reel + 2 Stories",
-            compensation: "₹4,500 + Complimentary Tasting for 2",
-            urgency: "This Weekend (Sat-Sun)",
-            collab_type: "both",
-        },
-        {
-            id: "opp-2",
-            brand_name: "Urban Stitch Boutique",
-            category: "Fashion & Apparel",
-            location_area: cleanArea.toLowerCase().includes("kalyan") ? "Kalyan Station Rd" : "Seawoods Sector 40",
-            city: cleanCity,
-            distance_km: 2.8,
-            campaign_title: "Festive Collection Try-On Haul",
-            deliverable: "1 Reel showcasing 3 Outfits",
-            compensation: "₹3,500 + ₹2,500 Free Shopping Voucher",
-            urgency: "Immediate",
-            collab_type: "both",
-        },
-        {
-            id: "opp-3",
-            brand_name: "Pulse 24x7 Fitness Studio",
-            category: "Fitness & Gym",
-            location_area: cleanArea.toLowerCase().includes("kalyan") ? "Khadakpada" : "Vashi",
-            city: cleanCity,
-            distance_km: 4.1,
-            campaign_title: "Drive Local Gym Memberships Footfall",
-            deliverable: "1 Workout Experience Reel",
-            compensation: "₹5,000 + 3-Month Free Gym Pass",
-            urgency: "Next 7 Days",
-            collab_type: "both",
-        },
-        {
-            id: "opp-4",
-            brand_name: "Glow & Co. Beauty Lounge",
-            category: "Salon & Spa",
-            location_area: cleanArea,
-            city: cleanCity,
-            distance_km: 3.5,
-            campaign_title: "Weekend Pamper & Skin Care Experience",
-            deliverable: "1 Transformation Reel + Before/After Story",
-            compensation: "₹4,000 + Full Luxury Facial Package",
-            urgency: "Flexible",
-            collab_type: "both",
-        },
-    ];
+        return {
+            id: inf.id,
+            name: inf.name || inf.handle,
+            handle: inf.handle.startsWith("@") ? inf.handle : `@${inf.handle}`,
+            platform: (inf.platform === "youtube" ? "youtube" : "instagram") as "instagram" | "youtube",
+            avatar_url: inf.avatar_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
+            city: infCity || userCity,
+            followers: followers,
+            engagement_rate: Math.round((inf.engagement_rate || 4.2) * 10) / 10,
+            match_score: inf.match_score || Math.max(80, Math.min(99, 95 - idx * 2)),
+            niche: inf.niche && inf.niche.length > 0 ? inf.niche : ["Lifestyle"],
+            rate_quote: `₹${estimatedRate.toLocaleString("en-IN")}`,
+            verified: true,
+            same_city: isSameCity,
+        };
+    });
 }

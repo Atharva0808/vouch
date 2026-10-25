@@ -264,13 +264,13 @@ function SearchContent() {
                                 </span>
                                 <button
                                     onClick={() => {
-                                        const loc = userProfile?.location_area || userProfile?.city || "Navi Mumbai";
-                                        setLocationFilter(loc);
-                                        handleSearch(loc);
+                                        const city = userProfile?.city || "Navi Mumbai";
+                                        setLocationFilter(city);
+                                        handleSearch(city);
                                     }}
                                     className="neo-btn bg-[var(--color-neo-yellow)] text-neo-black px-3 py-1.5 rounded-lg text-xs font-black flex items-center gap-1"
                                 >
-                                    <Sparkles size={12} /> Filter Within 15km
+                                    <Sparkles size={12} /> Same City Only ({userProfile?.city || "Navi Mumbai"})
                                 </button>
                             </div>
                         </motion.div>

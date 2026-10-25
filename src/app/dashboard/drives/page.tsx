@@ -44,110 +44,6 @@ import {
 } from "@/lib/api-client";
 import { getStoredUserProfile, type OnboardingProfile } from "@/lib/user-profile";
 
-// Seed fallback drives if database is empty so presentations never show a blank screen
-const SEED_FALLBACK_DRIVES: MarketingDrive[] = [
-    {
-        id: "seed-drive-1",
-        user_id: "00000000-0000-0000-0000-000000000001",
-        brand_name: "The Roasted Bean Artisan Cafe",
-        title: "Seawoods Cafe Tasting & Reel Campaign",
-        description: "Looking for local food & lifestyle creators to attend our store tasting event. Review our specialty pour-overs, artisan sourdough sandwiches, and create aesthetic reels highlighting our cozy interior vibes.",
-        category: "cafe_restaurant",
-        location_area: "Seawoods Grand Central",
-        city: "Navi Mumbai",
-        platform_preference: "instagram",
-        target_audience: ["18-24", "25-34", "Foodies", "Cafe Lovers"],
-        min_followers: 10000,
-        min_engagement_rate: 3.5,
-        niche_required: ["Food", "Cafes", "Lifestyle"],
-        deliverables: "1 In-Store Reel + 2 Stories with geotag",
-        compensation: "₹6,000 + Complimentary Meal for 2",
-        budget: 25000,
-        collab_type: "both",
-        status: "active",
-        deadline: new Date(Date.now() + 14 * 86400000).toISOString(),
-        max_applications: 20,
-        applications_count: 6,
-        created_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-        updated_at: new Date(Date.now() - 2 * 86400000).toISOString(),
-    },
-    {
-        id: "seed-drive-2",
-        user_id: "00000000-0000-0000-0000-000000000001",
-        brand_name: "Urban Stitch Designer Studio",
-        title: "Festive Ethnic Wear Try-On Haul",
-        description: "Promote our new handcrafted festive kurtas and indo-western collection. Creators will receive custom-tailored outfits to style and film an authentic GRWM / try-on reel.",
-        category: "fashion_apparel",
-        location_area: "Kalyan West",
-        city: "Navi Mumbai",
-        platform_preference: "instagram",
-        target_audience: ["Festive Shoppers", "Fashion Enthusiasts", "Gen-Z"],
-        min_followers: 25000,
-        min_engagement_rate: 4.0,
-        niche_required: ["Fashion", "Styling", "Ethnic"],
-        deliverables: "1 GRWM Reel + 3 Styling Stories + Discount Code",
-        compensation: "₹12,000 + 2 Outfits (Value ₹8,000)",
-        budget: 50000,
-        collab_type: "both",
-        status: "active",
-        deadline: new Date(Date.now() + 20 * 86400000).toISOString(),
-        max_applications: 15,
-        applications_count: 9,
-        created_at: new Date(Date.now() - 4 * 86400000).toISOString(),
-        updated_at: new Date(Date.now() - 4 * 86400000).toISOString(),
-    },
-    {
-        id: "seed-drive-3",
-        user_id: "00000000-0000-0000-0000-000000000001",
-        brand_name: "Pulse 24x7 Crossfit Gym",
-        title: "Local Gym Footfall & High-Energy Workout Demo",
-        description: "Looking for local fitness enthusiasts to document a 1-day high intensity workout session. Showcase our modern equipment, trainer guidance, and clean locker rooms to drive local walk-in memberships.",
-        category: "fitness_wellness",
-        location_area: "Vashi Sector 17",
-        city: "Navi Mumbai",
-        platform_preference: "any",
-        target_audience: ["Fitness", "Gym Goers", "Health & Wellness"],
-        min_followers: 15000,
-        min_engagement_rate: 4.5,
-        niche_required: ["Fitness", "Nutrition", "Gym"],
-        deliverables: "1 Workout Reel + 1 Static Post + Story Highlights",
-        compensation: "₹8,000 + 6-Month Free VIP Gym Access",
-        budget: 35000,
-        collab_type: "both",
-        status: "active",
-        deadline: new Date(Date.now() + 10 * 86400000).toISOString(),
-        max_applications: 12,
-        applications_count: 4,
-        created_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-        updated_at: new Date(Date.now() - 1 * 86400000).toISOString(),
-    },
-    {
-        id: "seed-drive-4",
-        user_id: "00000000-0000-0000-0000-000000000001",
-        brand_name: "Glow & Glam Skin Clinic",
-        title: "Hydra-Facial Experience & Skin Transformation",
-        description: "Experienced beauty & skincare influencers needed for a luxury dermatological clinic review. Record an honest step-by-step experience of our Korean Hydra-Facial treatment.",
-        category: "beauty_cosmetics",
-        location_area: "Nerul Palm Beach",
-        city: "Navi Mumbai",
-        platform_preference: "instagram",
-        target_audience: ["Skincare", "Beauty", "Self-Care"],
-        min_followers: 30000,
-        min_engagement_rate: 4.2,
-        niche_required: ["Skincare", "Beauty", "Dermatology"],
-        deliverables: "1 Clinic Vlog Reel + Before/After Glow Story",
-        compensation: "₹10,000 + Free Treatment (Worth ₹7,500)",
-        budget: 40000,
-        collab_type: "both",
-        status: "active",
-        deadline: new Date(Date.now() + 18 * 86400000).toISOString(),
-        max_applications: 10,
-        applications_count: 5,
-        created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-        updated_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-    },
-];
-
 export default function MarketingDrivesPage() {
     const [profile, setProfile] = useState<OnboardingProfile>(getStoredUserProfile());
     const [activeTab, setActiveTab] = useState<"browse" | "my-drives" | "my-applications">("browse");
@@ -167,20 +63,20 @@ export default function MarketingDrivesPage() {
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [creating, setCreating] = useState(false);
     const [createForm, setCreateForm] = useState({
-        brand_name: profile.business_name || "My Brand",
+        brand_name: profile.business_name || "Brand Partner",
         title: "",
         description: "",
         category: profile.category || "cafe_restaurant",
-        location_area: profile.location_area || "Seawoods",
+        location_area: profile.location_area || "Central Area",
         city: profile.city || "Navi Mumbai",
         platform_preference: "instagram",
-        min_followers: 10000,
-        min_engagement_rate: 3.5,
-        deliverables: "1 In-Store Reel + 2 Stories",
-        compensation: "₹5,000 + Complimentary Store Experience",
-        budget: 25000,
+        min_followers: 5000,
+        min_engagement_rate: 3.0,
+        deliverables: "1 Reel + 2 Stories",
+        compensation: "₹5,000",
+        budget: 20000,
         collab_type: "both",
-        max_applications: 25,
+        max_applications: 20,
     });
 
     // Apply Modal State
@@ -189,13 +85,13 @@ export default function MarketingDrivesPage() {
     const [applying, setApplying] = useState(false);
     const [applySuccess, setApplySuccess] = useState(false);
     const [applyForm, setApplyForm] = useState({
-        creator_name: profile.business_name || "Sneha Patel",
-        creator_handle: profile.social_handle || "@sneha_creatives",
+        creator_name: profile.business_name || "Creator",
+        creator_handle: profile.social_handle || "@creator",
         creator_platform: "instagram",
-        creator_followers: 48000,
-        creator_engagement_rate: 5.2,
-        creator_location: profile.location_area ? `${profile.location_area}, ${profile.city}` : "Navi Mumbai",
-        pitch: "Hey team! I love your brand and have created high-converting footfall reels for cafes and lifestyle spots in Navi Mumbai with over 90% local audience concentration. Would love to collaborate on this drive!",
+        creator_followers: 25000,
+        creator_engagement_rate: 4.5,
+        creator_location: profile.city || "Navi Mumbai",
+        pitch: "",
     });
 
     // View Applications Modal (Brand Side)
@@ -217,13 +113,9 @@ export default function MarketingDrivesPage() {
     const loadDrivesData = async () => {
         setLoading(true);
         try {
-            // Load all drives
+            // Load real drives from backend
             const browseRes = await getDrives();
-            if (browseRes.drives && browseRes.drives.length > 0) {
-                setDrives(browseRes.drives);
-            } else {
-                setDrives(SEED_FALLBACK_DRIVES);
-            }
+            setDrives(browseRes.drives || []);
 
             // Load user's posted drives
             const myDrivesRes = await getMyDrives();
@@ -237,7 +129,7 @@ export default function MarketingDrivesPage() {
                 setMyApplications(myAppsRes.applications);
             }
         } catch {
-            setDrives(SEED_FALLBACK_DRIVES);
+            setDrives([]);
         } finally {
             setLoading(false);
         }
