@@ -15,12 +15,24 @@ import asyncio
 
 router = APIRouter(prefix="/api/influencers", tags=["Influencers"])
 
+DEFAULT_DEMO_USER_ID = "00000000-0000-0000-0000-000000000001"
+
+def get_effective_user_id(x_user_id: str | None) -> str:
+    return x_user_id.strip() if x_user_id and x_user_id.strip() else DEFAULT_DEMO_USER_ID
+
+def check_influencer_access(profile: dict | None, effective_user_id: str) -> bool:
+    if not profile:
+        return False
+    owner_id = profile.get("user_id")
+    if not owner_id or owner_id == DEFAULT_DEMO_USER_ID or effective_user_id == DEFAULT_DEMO_USER_ID:
+        return True
+    return owner_id == effective_user_id
+
 
 @router.post("/fetch", response_model=dict)
 async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Header(None)):
     """Fetch REAL influencer data from social media and run full AI analysis"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header required")
+    effective_user_id = get_effective_user_id(x_user_id)
     
     try:
         # Clean handle: strip spaces, @, lowercase
@@ -46,7 +58,7 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
                 pass
 
         # Demo Mode: Unlimited search quota for presentation
-        user_prof = await db.get_user_profile(x_user_id)
+        user_prof = await db.get_user_profile(effective_user_id)
         # Search quota restriction disabled for presentation demo
         
         # 1. Fetch real profile from social media
@@ -149,7 +161,7 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
             **profile,
             "niche": profile.get("niche", []),
             "updated_at": datetime.utcnow().isoformat(),
-        }, x_user_id)
+        }, effective_user_id)
         
         influencer_id = saved_profile.get("id", "")
         
@@ -159,9 +171,9 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
             
             db_tasks = [
                 db.save_engagement_data(influencer_id, timeline),
-                db.increment_search_count(x_user_id),
+                db.increment_search_count(effective_user_id),
                 db.log_activity(
-                    user_id=x_user_id,
+                    user_id=effective_user_id,
                     action="Influencer Fetched",
                     details=f"Added {profile.get('name', '')} ({profile.get('handle', '')}) from {req.platform} — {follower_str} followers, {profile.get('risk_level', 'unknown')} risk",
                     icon="user-plus",
@@ -173,7 +185,7 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
                 db_tasks.append(db.save_risk_flags(influencer_id, risk_result["flags"]))
             if risk_lvl in ("high", "critical"):
                 db_tasks.append(db.log_activity(
-                    user_id=x_user_id,
+                    user_id=effective_user_id,
                     action=f"⚠️ {risk_lvl.upper()} Risk Detected",
                     details=f"{profile.get('name', '')} ({profile.get('handle', '')}) flagged as {risk_lvl} risk — {len(risk_result.get('flags', []))} issue(s) found",
                     icon="alert",
@@ -210,11 +222,10 @@ async def search_influencers(
     x_user_id: str | None = Header(None)
 ):
     """Search influencers from the database"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header required")
+    effective_user_id = get_effective_user_id(x_user_id)
 
     results = await db.search_influencers(
-        user_id=x_user_id,
+        user_id=effective_user_id,
         query=query,
         platform=platform,
         niche=niche,
@@ -230,29 +241,29 @@ async def search_influencers(
 @router.get("/all")
 async def list_influencers(limit: int = 50, offset: int = 0, x_user_id: str | None = Header(None)):
     """Get all indexed influencers"""
-    if not x_user_id:
-        return {"results": [], "count": 0}
-    
-    results = await db.get_all_influencers(user_id=x_user_id, limit=limit, offset=offset)
+    effective_user_id = get_effective_user_id(x_user_id)
+    results = await db.get_all_influencers(user_id=effective_user_id, limit=limit, offset=offset)
     return {"results": results, "count": len(results)}
 
 
 @router.get("/risks/all")
 async def get_all_risk_flags(x_user_id: str | None = Header(None)):
     """Get all risk flags across all influencers with influencer details"""
-    data = await db.get_all_risk_flags(user_id=x_user_id)
+    effective_user_id = get_effective_user_id(x_user_id)
+    data = await db.get_all_risk_flags(user_id=effective_user_id)
     return data
 
 
 @router.delete("/risks/{flag_id}")
 async def delete_risk_flag(flag_id: str, x_user_id: str | None = Header(None)):
     """Delete a single risk flag"""
+    effective_user_id = get_effective_user_id(x_user_id)
     try:
         success = await db.delete_risk_flag(flag_id)
         if not success:
             raise HTTPException(status_code=404, detail="Risk flag not found")
         await db.log_activity(
-            user_id=x_user_id or "system",
+            user_id=effective_user_id,
             action="Risk Flag Dismissed",
             details=f"Manually dismissed risk flag {flag_id[:8]}…",
             icon="shield",
@@ -267,17 +278,14 @@ async def delete_risk_flag(flag_id: str, x_user_id: str | None = Header(None)):
 @router.delete("/clear-all")
 async def clear_all_influencers(x_user_id: str | None = Header(None)):
     """Delete ALL influencers and related data from the database"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     try:
-        # Note: clear_all_influencers in service needs update to filter by user_id
-        # For now, let's just use delete_influencer on all user's influencers
-        infs = await db.get_all_influencers(user_id=x_user_id, limit=1000)
+        infs = await db.get_all_influencers(user_id=effective_user_id, limit=1000)
         for inf in infs:
             await db.delete_influencer(inf["id"])
             
         await db.log_activity(
-            user_id=x_user_id,
+            user_id=effective_user_id,
             action="Collection Cleared",
             details="All influencers and their analysis data were permanently deleted",
             icon="trash",
@@ -290,10 +298,10 @@ async def clear_all_influencers(x_user_id: str | None = Header(None)):
 @router.delete("/{influencer_id}")
 async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(None)):
     """Delete a single influencer and all related data"""
+    effective_user_id = get_effective_user_id(x_user_id)
     try:
-        # Get name before deleting for notification
         profile = await db.get_influencer(influencer_id)
-        if not profile or profile.get("user_id") != x_user_id:
+        if not check_influencer_access(profile, effective_user_id):
              raise HTTPException(status_code=403, detail="Not authorized to delete this influencer")
 
         name = profile.get("name", "Unknown") if profile else "Unknown"
@@ -304,7 +312,7 @@ async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(N
             raise HTTPException(status_code=404, detail="Influencer not found")
         
         await db.log_activity(
-            user_id=x_user_id,
+            user_id=effective_user_id,
             action="Influencer Removed",
             details=f"Deleted {name} ({handle}) and all related analysis data",
             icon="trash",
@@ -319,11 +327,10 @@ async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(N
 @router.get("/{influencer_id}")
 async def get_influencer(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get full influencer profile with all analysis data"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     engagement = await db.get_engagement_data(influencer_id)
     sentiment = await db.get_sentiment(influencer_id)
@@ -340,11 +347,10 @@ async def get_influencer(influencer_id: str, x_user_id: str | None = Header(None
 @router.get("/{influencer_id}/engagement")
 async def get_engagement(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get engagement timeline data"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     data = await db.get_engagement_data(influencer_id)
     return {"data": data}
 
@@ -352,11 +358,10 @@ async def get_engagement(influencer_id: str, x_user_id: str | None = Header(None
 @router.get("/{influencer_id}/sentiment")
 async def get_sentiment(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get sentiment analysis"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     data = await db.get_sentiment(influencer_id)
     return {"data": data}
 
@@ -364,11 +369,10 @@ async def get_sentiment(influencer_id: str, x_user_id: str | None = Header(None)
 @router.get("/{influencer_id}/download")
 async def download_influencer_pdf(influencer_id: str, x_user_id: str | None = Header(None)):
     """Download an influencer profile summary as PDF"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     pdf_bytes = profile_to_pdf(profile)
     name = (profile.get("name") or "influencer").replace(" ", "_")[:50]
@@ -385,11 +389,10 @@ async def download_influencer_pdf(influencer_id: str, x_user_id: str | None = He
 @router.get("/{influencer_id}/risks")
 async def get_risks(influencer_id: str, x_user_id: str | None = Header(None)):
     """Get risk flags"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     data = await db.get_risk_flags(influencer_id)
     return {"data": data}
 
@@ -397,11 +400,10 @@ async def get_risks(influencer_id: str, x_user_id: str | None = Header(None)):
 @router.post("/{influencer_id}/reanalyze")
 async def reanalyze_influencer(influencer_id: str, x_user_id: str | None = Header(None)):
     """Re-run AI analysis on an existing influencer"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id required")
+    effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not profile or profile.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="Influencer not found or access denied")
+    if not check_influencer_access(profile, effective_user_id):
+        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     engagement = await db.get_engagement_data(influencer_id)
     
@@ -435,7 +437,7 @@ async def reanalyze_influencer(influencer_id: str, x_user_id: str | None = Heade
     if ai_niches and ai_niches != ["General"]:
         updated["niche"] = ai_niches
     
-    await db.upsert_influencer({**profile, **updated}, x_user_id)
+    await db.upsert_influencer({**profile, **updated}, effective_user_id)
     
     if risk_result.get("flags"):
         await db.save_risk_flags(influencer_id, risk_result["flags"])
@@ -444,7 +446,7 @@ async def reanalyze_influencer(influencer_id: str, x_user_id: str | None = Heade
         await db.save_sentiment(influencer_id, sentiment)
     
     await db.log_activity(
-        user_id=x_user_id,
+        user_id=effective_user_id,
         action="Re-Analysis Complete",
         details=f"Re-ran AI analysis on {profile.get('name', 'Unknown')} ({profile.get('handle', '')}) — Match: {match_result.get('match_score', 0)}%, Risk: {risk_result.get('overall_risk', 'unknown')}",
         icon="refresh",
@@ -460,14 +462,13 @@ async def reanalyze_influencer(influencer_id: str, x_user_id: str | None = Heade
 @router.post("/compare")
 async def compare_influencers(req: CompareRequest, x_user_id: str | None = Header(None)):
     """Compare two influencers side-by-side"""
-    if not x_user_id:
-        raise HTTPException(status_code=401, detail="X-User-Id header required")
+    effective_user_id = get_effective_user_id(x_user_id)
         
     profile_a = await db.get_influencer(req.influencer_a_id)
     profile_b = await db.get_influencer(req.influencer_b_id)
     
-    if not profile_a or profile_a.get("user_id") != x_user_id or not profile_b or profile_b.get("user_id") != x_user_id:
-        raise HTTPException(status_code=403, detail="One or both influencers not found or access denied")
+    if not profile_a or not check_influencer_access(profile_a, effective_user_id) or not profile_b or not check_influencer_access(profile_b, effective_user_id):
+        raise HTTPException(status_code=404, detail="One or both influencers not found or access denied")
     
     def fmt(n):
         if n is None or not isinstance(n, (int, float)):

@@ -197,6 +197,8 @@ async def get_risk_flags(influencer_id: str) -> list[dict]:
 
 async def save_report(report: dict) -> dict:
     sb = get_supabase()
+    if not is_valid_uuid(report.get("user_id")):
+        report["user_id"] = "00000000-0000-0000-0000-000000000001"
     result = sb.table("reports").insert(report).execute()
     return result.data[0] if result.data else {}
 
@@ -204,7 +206,7 @@ async def save_report(report: dict) -> dict:
 async def get_reports(user_id: str | None = None) -> list[dict]:
     sb = get_supabase()
     q = sb.table("reports").select("*")
-    if user_id:
+    if user_id and is_valid_uuid(user_id):
         q = q.eq("user_id", user_id)
     result = q.order("created_at", desc=True).limit(50).execute()
     return result.data or []
@@ -241,7 +243,7 @@ async def get_all_risk_flags(user_id: str | None = None) -> list[dict]:
     sb = get_supabase()
     q = sb.table("risk_flags").select("id, influencer_id, type, severity, description, source, evidence, detected_at, influencers!inner(id, name, handle, platform, avatar_url, user_id)")
     
-    if user_id:
+    if user_id and is_valid_uuid(user_id):
         q = q.eq("influencers.user_id", user_id)
         
     result = (
@@ -323,8 +325,9 @@ async def log_activity(user_id: str, action: str, details: str = "", icon: str =
     """Log an activity / notification. Fire-and-forget — never breaks the caller."""
     try:
         sb = get_supabase()
+        effective_uid = user_id if is_valid_uuid(user_id) else "00000000-0000-0000-0000-000000000001"
         sb.table("activity_feed").insert({
-            "user_id": user_id,
+            "user_id": effective_uid,
             "action": action,
             "details": details,
             "icon": icon,
@@ -335,11 +338,11 @@ async def log_activity(user_id: str, action: str, details: str = "", icon: str =
 
 async def get_activity_feed(user_id: str, limit: int = 20) -> list[dict]:
     sb = get_supabase()
+    q = sb.table("activity_feed").select("id, action, details, icon, created_at")
+    if is_valid_uuid(user_id):
+        q = q.eq("user_id", user_id)
     result = (
-        sb.table("activity_feed")
-        .select("id, action, details, icon, created_at")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
+        q.order("created_at", desc=True)
         .limit(limit)
         .execute()
     )

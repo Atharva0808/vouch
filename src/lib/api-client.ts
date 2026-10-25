@@ -12,18 +12,29 @@ function getBackendUrl(): string {
 
 const BACKEND_URL = getBackendUrl();
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    // Attempt to get user session to pass to backend for isolation
+const DEFAULT_CLIENT_USER_ID = "00000000-0000-0000-0000-000000000001";
+
+export async function getEffectiveUserId(): Promise<string> {
     let userId = "";
     try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             userId = user.id;
+            if (typeof window !== "undefined") {
+                localStorage.setItem("vouch_active_user_id", user.id);
+            }
+        } else if (typeof window !== "undefined") {
+            userId = localStorage.getItem("vouch_active_user_id") || DEFAULT_CLIENT_USER_ID;
         }
     } catch {
-        // Fallback for non-client contexts if needed
+        userId = DEFAULT_CLIENT_USER_ID;
     }
+    return userId || DEFAULT_CLIENT_USER_ID;
+}
+
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const userId = await getEffectiveUserId();
 
     const res = await fetch(`${BACKEND_URL}${path}`, {
         headers: {
@@ -188,10 +199,7 @@ export async function reanalyzeInfluencer(id: string) {
 
 /** Download influencer profile as PDF */
 export async function downloadInfluencerPdf(id: string) {
-    // Helper to get user ID for raw fetch
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || "";
+    const userId = await getEffectiveUserId();
 
     const res = await fetch(`${BACKEND_URL}/api/influencers/${id}/download`, {
         headers: { "X-User-Id": userId }
@@ -394,10 +402,7 @@ export async function generateReport(influencerId: string, reportType: string = 
 
 /** Download a single report as PDF */
 export async function downloadReportPdf(reportId: string): Promise<void> {
-    // Helper to get user ID for raw fetch
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || "";
+    const userId = await getEffectiveUserId();
 
     const res = await fetch(`${BACKEND_URL}/api/ai/reports/${reportId}/download`, {
         headers: { "X-User-Id": userId }
@@ -416,10 +421,7 @@ export async function downloadReportPdf(reportId: string): Promise<void> {
 
 /** Download multiple reports as one PDF */
 export async function downloadCombinedReportsPdf(reportIds: string[]): Promise<void> {
-    // Helper to get user ID for raw fetch
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || "";
+    const userId = await getEffectiveUserId();
 
     const res = await fetch(`${BACKEND_URL}/api/ai/reports/download-combined`, {
         method: "POST",
