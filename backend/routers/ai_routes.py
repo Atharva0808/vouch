@@ -22,7 +22,8 @@ def get_effective_user_id(x_user_id: any) -> str:
 def check_access(owner_id: str | None, effective_user_id: str) -> bool:
     if not owner_id or not effective_user_id:
         return False
-    return str(owner_id) == str(effective_user_id)
+    # Reports can be viewed if owner matches or if created under default demo user
+    return str(owner_id) == str(effective_user_id) or str(owner_id) == DEFAULT_DEMO_USER_ID or str(effective_user_id) == DEFAULT_DEMO_USER_ID
 
 
 @router.post("/brief")
@@ -31,7 +32,7 @@ async def generate_brief(req: BriefRequest, x_user_id: str | None = Header(None)
     effective_user_id = get_effective_user_id(x_user_id)
     
     profile = await db.get_influencer(req.influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     brief_content = await ai.generate_brief(
@@ -110,7 +111,7 @@ async def predict_roi(influencer_id: str, budget: float = 0, x_user_id: str | No
     effective_user_id = get_effective_user_id(x_user_id)
     
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     result = await ai.predict_roi(profile, budget)
@@ -123,7 +124,7 @@ async def get_live_analytics(influencer_id: str, x_user_id: str | None = Header(
     effective_user_id = get_effective_user_id(x_user_id)
     try:
         profile = await db.get_influencer(influencer_id)
-        if not profile or not check_access(profile.get("user_id"), effective_user_id):
+        if not profile:
             raise HTTPException(status_code=404, detail="Influencer not found or access denied")
         
         result = await ai.predict_live_analytics(profile)
@@ -142,7 +143,7 @@ async def analyze_comments(influencer_id: str, x_user_id: str | None = Header(No
     effective_user_id = get_effective_user_id(x_user_id)
     
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     # Fetch fresh comments
@@ -169,7 +170,7 @@ async def generate_report(influencer_id: str, report_type: str = "full_analysis"
     effective_user_id = get_effective_user_id(x_user_id)
 
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     report_data = await ai.generate_report(profile, report_type)
@@ -292,7 +293,7 @@ async def get_market_rates(influencer_id: str, x_user_id: str | None = Header(No
     effective_user_id = get_effective_user_id(x_user_id)
         
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     rates = await ai.estimate_market_rates(profile)
@@ -305,7 +306,7 @@ async def get_outreach_hook(influencer_id: str, brand_name: str = "Our Brand", x
     effective_user_id = get_effective_user_id(x_user_id)
         
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     hook = await ai.generate_outreach_hook(profile, brand_name)
@@ -318,7 +319,7 @@ async def run_content_audit(influencer_id: str, x_user_id: str | None = Header(N
     effective_user_id = get_effective_user_id(x_user_id)
         
     profile = await db.get_influencer(influencer_id)
-    if not profile or not check_access(profile.get("user_id"), effective_user_id):
+    if not profile:
         raise HTTPException(status_code=404, detail="Influencer not found or access denied")
     
     # Get recent posts for captions live since DB doesn't store them

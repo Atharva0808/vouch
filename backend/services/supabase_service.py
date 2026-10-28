@@ -69,17 +69,37 @@ async def get_influencer(influencer_id: str, user_id: str | None = None) -> dict
 
 async def get_influencer_by_handle(handle: str, platform: str, user_id: str | None = None) -> dict | None:
     sb = get_supabase()
+    clean_h = handle.lstrip("@").strip()
+    variants = [clean_h, f"@{clean_h}"]
     try:
-        q = (
-            sb.table("influencers")
-            .select("*")
-            .eq("handle", handle)
-            .eq("platform", platform)
-        )
+        # First try with user_id if provided
         if user_id and is_valid_uuid(user_id):
-            q = q.eq("user_id", user_id)
-        result = q.maybe_single().execute()
-        return result.data if result else None
+            for h in variants:
+                res = (
+                    sb.table("influencers")
+                    .select("*")
+                    .eq("handle", h)
+                    .eq("platform", platform)
+                    .eq("user_id", user_id)
+                    .maybe_single()
+                    .execute()
+                )
+                if res and res.data:
+                    return res.data
+        # If not found or no user_id, check across all users (authentic global directory)
+        for h in variants:
+            res = (
+                sb.table("influencers")
+                .select("*")
+                .eq("handle", h)
+                .eq("platform", platform)
+                .order("updated_at", desc=True)
+                .limit(1)
+                .execute()
+            )
+            if res and res.data and len(res.data) > 0:
+                return res.data[0]
+        return None
     except Exception:
         return None
 
@@ -95,10 +115,10 @@ async def search_influencers(
     min_engagement: float | None = None,
     risk_level: str | None = None,
 ) -> list[dict]:
-    if not user_id or not is_valid_uuid(user_id):
-        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*").eq("user_id", user_id)
+    q = sb.table("influencers").select("*")
+    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
+        q = q.or_(f"user_id.eq.{user_id},user_id.eq.00000000-0000-0000-0000-000000000001")
     
     if query:
         q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
@@ -119,20 +139,41 @@ async def search_influencers(
         q = q.eq("risk_level", risk_level.lower())
     
     result = q.order("created_at", desc=True).limit(50).execute()
+    # If filtered query returns empty for specific user, fall back to global
+    if not result.data:
+        fallback_q = sb.table("influencers").select("*")
+        if query:
+            fallback_q = fallback_q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
+        if platform:
+            fallback_q = fallback_q.eq("platform", platform)
+        if niche:
+            fallback_q = fallback_q.contains("niche", [niche.capitalize()])
+        fallback_res = fallback_q.order("created_at", desc=True).limit(50).execute()
+        return fallback_res.data or []
     return result.data or []
 
 
 async def get_all_influencers(user_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
-    if not user_id or not is_valid_uuid(user_id):
-        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*").eq("user_id", user_id)
+    q = sb.table("influencers").select("*")
+    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
+        q = q.or_(f"user_id.eq.{user_id},user_id.eq.00000000-0000-0000-0000-000000000001")
     
     result = (
         q.order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
+    # If user-filtered results are empty, fetch from global directory so platform is never blank
+    if not result.data:
+        global_res = (
+            sb.table("influencers")
+            .select("*")
+            .order("created_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return global_res.data or []
     return result.data or []
 
 

@@ -119,12 +119,12 @@ function BillingContent() {
             let finalPriceId = "";
             if (plan.priceId === "pro") {
                 finalPriceId = annual
-                    ? (process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_YEARLY || "price_1T4GJB2L3SLiBT7oRd52HbpZ")
-                    : (process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY || "price_1T4G5W2L3SLiBT7oMG77YjKS");
+                    ? (process.env.NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_YEARLY || "price_1T4GJB2L3SLiBT7oRd52HbpZ")
+                    : (process.env.NEXT_PUBLIC_STRIPE_PRO_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY || "price_1T4G5W2L3SLiBT7oMG77YjKS");
             } else if (plan.priceId === "agency") {
                 finalPriceId = annual
-                    ? (process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY_YEARLY || "price_1T4GJc2L3SLiBT7o4BDtMDoe")
-                    : (process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY_MONTHLY || "price_1T4G6e2L3SLiBT7oNPuAOshf");
+                    ? (process.env.NEXT_PUBLIC_STRIPE_AGENCY_YEARLY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY_YEARLY || "price_1T4GJc2L3SLiBT7o4BDtMDoe")
+                    : (process.env.NEXT_PUBLIC_STRIPE_AGENCY_PRICE_ID || process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY_MONTHLY || "price_1T4G6e2L3SLiBT7oNPuAOshf");
             }
 
             // 3. Call the official createCheckout API

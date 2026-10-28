@@ -6,7 +6,7 @@
 import { createClient } from "./supabase-browser";
 
 function getBackendUrl(): string {
-    const url = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+    const url = process.env.NEXT_PUBLIC_BACKEND_URL || "https://vouch-crvu.onrender.com";
     return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 

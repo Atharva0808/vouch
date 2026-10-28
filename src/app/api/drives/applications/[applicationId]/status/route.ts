@@ -29,3 +29,4 @@ export async function PATCH(
         return NextResponse.json({ error: err?.message || "Failed to update application status" }, { status: 500 });
     }
 }
+

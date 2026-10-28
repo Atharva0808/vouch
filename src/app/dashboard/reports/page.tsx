@@ -270,7 +270,7 @@ export default function ReportsPage() {
                                         <option value="">Choose from your collection...</option>
                                         {influencers.map((inf) => (
                                             <option key={inf.id} value={inf.id}>
-                                                {inf.name} (@{inf.handle})
+                                                {inf.name} ({inf.handle.startsWith("@") ? inf.handle : "@" + inf.handle})
                                             </option>
                                         ))}
                                     </select>

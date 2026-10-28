@@ -279,7 +279,7 @@ export default function RisksPage() {
                                                     risk.influencers?.platform || "?"
                                                 )}
                                             </span>
-                                            <span className="text-[10px] text-neo-black/40 font-mono truncate">@{risk.influencers?.handle || "system"}</span>
+                                            <span className="text-[10px] text-neo-black/40 font-mono truncate">{risk.influencers?.handle ? (risk.influencers.handle.startsWith("@") ? risk.influencers.handle : "@" + risk.influencers.handle) : "@system"}</span>
                                         </div>
                                     </div>
                                 </div>

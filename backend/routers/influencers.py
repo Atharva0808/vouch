@@ -44,7 +44,7 @@ async def fetch_influencer(req: SocialFetchRequest, x_user_id: str | None = Head
         clean_handle = req.handle.replace(" ", "").replace("@", "").lower().strip()
         
         # 1. Check database cache ONLY if it contains authentic verified data (never placeholder/ui-avatars/unknown)
-        cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform, user_id=effective_user_id)
+        cached_profile = await db.get_influencer_by_handle(clean_handle, req.platform)
         if cached_profile and cached_profile.get("updated_at"):
             c_avatar = cached_profile.get("avatar_url", "")
             c_name = cached_profile.get("name", "")
@@ -353,8 +353,8 @@ async def get_influencer(influencer_id: str, x_user_id: str | None = Header(None
     """Get full influencer profile with all analysis data"""
     effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not check_influencer_access(profile, effective_user_id):
-        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
+    if not profile:
+        raise HTTPException(status_code=404, detail="Influencer not found")
     
     engagement = await db.get_engagement_data(influencer_id)
     sentiment = await db.get_sentiment(influencer_id)
@@ -373,8 +373,8 @@ async def get_engagement(influencer_id: str, x_user_id: str | None = Header(None
     """Get engagement timeline data"""
     effective_user_id = get_effective_user_id(x_user_id)
     profile = await db.get_influencer(influencer_id)
-    if not check_influencer_access(profile, effective_user_id):
-        raise HTTPException(status_code=404, detail="Influencer not found or access denied")
+    if not profile:
+        raise HTTPException(status_code=404, detail="Influencer not found")
     data = await db.get_engagement_data(influencer_id)
     return {"data": data}
 

@@ -28,7 +28,7 @@ HEADERS = {
 }
 
 # Hostnames for the APIs
-INSTAGRAM_HOST = os.getenv("INSTAGRAM_HOST", "instagram-scraper-api2.p.rapidapi.com")
+INSTAGRAM_HOST = os.getenv("INSTAGRAM_HOST", "instagram-scraper-stable-api.p.rapidapi.com")
 YOUTUBE_HOST = os.getenv("YOUTUBE_HOST", "youtube138.p.rapidapi.com")
 
 
@@ -60,7 +60,7 @@ async def fetch_instagram_profile(handle: str) -> dict:
             "RapidAPI Key is missing. Please set RAPIDAPI_KEY in your backend/.env and .env.local files."
         )
     
-    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-api2.p.rapidapi.com"
+    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-stable-api.p.rapidapi.com"
     
     rapid_headers = {
         "x-rapidapi-key": RAPIDAPI_KEY,
@@ -72,7 +72,14 @@ async def fetch_instagram_profile(handle: str) -> dict:
     # 1. RockSolid APIs: instagram-scraper-api2.p.rapidapi.com (/v1/info)
     # 2. General scraper endpoints (/user/details-by-username/, /profile, /user_info)
     # 3. Post profile endpoints (/api/instagram/profile)
+    # Endpoints supported across major RapidAPI Instagram providers:
+    # 1. Instagram Scraper Stable API: /ig_get_fb_profile.php (POST)
+    # 2. RockSolid APIs: instagram-scraper-api2.p.rapidapi.com (/v1/info)
+    # 3. Standard scrapers (/user/details-by-username/, /profile, /user_info)
     endpoints = [
+        ("POST", f"https://{host}/ig_get_fb_profile.php", {"username_or_url": clean_handle}),
+        ("POST", f"https://{host}/ig_get_fb_profile.php", {"username_or_url": clean_handle, "data": ""}),
+        ("POST", "https://instagram-scraper-stable-api.p.rapidapi.com/ig_get_fb_profile.php", {"username_or_url": clean_handle}),
         ("GET", f"https://{host}/v1/info", {"username_or_id_or_url": clean_handle}),
         ("GET", f"https://{host}/user/details-by-username/", {"username": clean_handle}),
         ("GET", f"https://{host}/profile", {"username": clean_handle}),
@@ -305,7 +312,7 @@ async def fetch_instagram_comments(handle: str, profile: dict = None) -> list[st
         if captions:
             return captions
 
-    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-api2.p.rapidapi.com"
+    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-stable-api.p.rapidapi.com"
     headers = {
         **HEADERS,
         "x-rapidapi-host": host,
