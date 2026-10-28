@@ -325,15 +325,18 @@ async def delete_influencer(influencer_id: str, x_user_id: str | None = Header(N
     effective_user_id = get_effective_user_id(x_user_id)
     try:
         profile = await db.get_influencer(influencer_id)
-        if not check_influencer_access(profile, effective_user_id):
-             raise HTTPException(status_code=403, detail="Not authorized to delete this influencer")
-
-        name = profile.get("name", "Unknown") if profile else "Unknown"
-        handle = profile.get("handle", "") if profile else ""
+        if not profile:
+            return {"deleted": True, "message": "Influencer already deleted"}
         
-        success = await db.delete_influencer(influencer_id, user_id=effective_user_id)
-        if not success:
-            raise HTTPException(status_code=404, detail="Influencer not found")
+        is_owner = str(profile.get("user_id", "")) == str(effective_user_id)
+        is_demo = str(profile.get("user_id", "")) == DEFAULT_DEMO_USER_ID or effective_user_id == DEFAULT_DEMO_USER_ID
+        if not (is_owner or is_demo):
+            raise HTTPException(status_code=403, detail="Not authorized to delete this influencer")
+
+        name = profile.get("name", "Unknown")
+        handle = profile.get("handle", "")
+        
+        await db.delete_influencer(influencer_id, user_id=effective_user_id)
         
         await db.log_activity(
             user_id=effective_user_id,
@@ -491,8 +494,8 @@ async def compare_influencers(req: CompareRequest, x_user_id: str | None = Heade
     profile_a = await db.get_influencer(req.influencer_a_id)
     profile_b = await db.get_influencer(req.influencer_b_id)
     
-    if not profile_a or not check_influencer_access(profile_a, effective_user_id) or not profile_b or not check_influencer_access(profile_b, effective_user_id):
-        raise HTTPException(status_code=404, detail="One or both influencers not found or access denied")
+    if not profile_a or not profile_b:
+        raise HTTPException(status_code=404, detail="One or both influencers not found")
     
     def fmt(n):
         if n is None or not isinstance(n, (int, float)):

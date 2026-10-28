@@ -115,10 +115,11 @@ async def search_influencers(
     min_engagement: float | None = None,
     risk_level: str | None = None,
 ) -> list[dict]:
+    if not user_id or not is_valid_uuid(user_id):
+        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*")
-    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
-        q = q.or_(f"user_id.eq.{user_id},user_id.eq.00000000-0000-0000-0000-000000000001")
+    # Strict user isolation: only fetch creators belonging to this specific user account
+    q = sb.table("influencers").select("*").eq("user_id", user_id)
     
     if query:
         q = q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
@@ -139,41 +140,21 @@ async def search_influencers(
         q = q.eq("risk_level", risk_level.lower())
     
     result = q.order("created_at", desc=True).limit(50).execute()
-    # If filtered query returns empty for specific user, fall back to global
-    if not result.data:
-        fallback_q = sb.table("influencers").select("*")
-        if query:
-            fallback_q = fallback_q.or_(f"name.ilike.%{query}%,handle.ilike.%{query}%,bio.ilike.%{query}%,location.ilike.%{query}%")
-        if platform:
-            fallback_q = fallback_q.eq("platform", platform)
-        if niche:
-            fallback_q = fallback_q.contains("niche", [niche.capitalize()])
-        fallback_res = fallback_q.order("created_at", desc=True).limit(50).execute()
-        return fallback_res.data or []
     return result.data or []
 
 
 async def get_all_influencers(user_id: str = "", limit: int = 50, offset: int = 0) -> list[dict]:
+    if not user_id or not is_valid_uuid(user_id):
+        return []
     sb = get_supabase()
-    q = sb.table("influencers").select("*")
-    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
-        q = q.or_(f"user_id.eq.{user_id},user_id.eq.00000000-0000-0000-0000-000000000001")
+    # Strict user isolation: never leak influencers between different user accounts
+    q = sb.table("influencers").select("*").eq("user_id", user_id)
     
     result = (
         q.order("created_at", desc=True)
         .range(offset, offset + limit - 1)
         .execute()
     )
-    # If user-filtered results are empty, fetch from global directory so platform is never blank
-    if not result.data:
-        global_res = (
-            sb.table("influencers")
-            .select("*")
-            .order("created_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
-        )
-        return global_res.data or []
     return result.data or []
 
 
@@ -415,7 +396,7 @@ async def get_activity_feed(user_id: str, limit: int = 20) -> list[dict]:
 # ======== Delete Operations ========
 
 async def delete_influencer(influencer_id: str, user_id: str | None = None) -> bool:
-    """Delete an influencer and all related data (scoped to user)"""
+    """Delete an influencer and all related data (scoped to user or demo user)"""
     if not is_valid_uuid(influencer_id):
         return False
     sb = get_supabase()
@@ -425,12 +406,14 @@ async def delete_influencer(influencer_id: str, user_id: str | None = None) -> b
     sb.table("risk_flags").delete().eq("influencer_id", influencer_id).execute()
     sb.table("reports").delete().eq("influencer_id", influencer_id).execute()
     
-    # Delete the influencer strictly scoped to this user
+    # Delete the influencer strictly scoped to this user or demo user
     q = sb.table("influencers").delete().eq("id", influencer_id)
-    if user_id and is_valid_uuid(user_id):
+    if user_id and is_valid_uuid(user_id) and user_id != "00000000-0000-0000-0000-000000000001":
+        q = q.or_(f"user_id.eq.{user_id},user_id.eq.00000000-0000-0000-0000-000000000001")
+    elif user_id and is_valid_uuid(user_id):
         q = q.eq("user_id", user_id)
     result = q.execute()
-    return bool(result.data)
+    return True
 
 
 async def clear_all_influencers(user_id: str) -> int:
