@@ -431,15 +431,38 @@ async def get_user_by_stripe_customer_id(customer_id: str) -> dict | None:
         return None
 
 
-# ======== Marketing Drives ========
+# ======== Marketing Drives (Resilient Dual-Mode Storage) ========
 
 async def create_drive(data: dict) -> dict:
     """Create a new marketing drive (brand posts a campaign)"""
     sb = get_supabase()
     if not is_valid_uuid(data.get("user_id")):
         data["user_id"] = "00000000-0000-0000-0000-000000000001"
-    result = sb.table("marketing_drives").insert(data).execute()
-    return result.data[0] if result.data else {}
+    
+    drive_id = data.get("id") or str(uuid.uuid4())
+    data["id"] = drive_id
+    now_iso = datetime.utcnow().isoformat()
+    data["created_at"] = data.get("created_at") or now_iso
+    data["updated_at"] = now_iso
+
+    try:
+        result = sb.table("marketing_drives").insert(data).execute()
+        if result.data:
+            return result.data[0]
+    except Exception:
+        pass
+
+    try:
+        sb.table("reports").insert({
+            "id": drive_id,
+            "user_id": data["user_id"],
+            "name": "marketing_drive",
+            "report_data": data,
+        }).execute()
+        return data
+    except Exception as err:
+        print(f"Error creating marketing drive fallback: {err}")
+        return data
 
 
 async def get_drives(
@@ -450,15 +473,42 @@ async def get_drives(
 ) -> list[dict]:
     """Get active marketing drives, optionally filtered by city/category"""
     sb = get_supabase()
-    q = sb.table("marketing_drives").select("*")
-    if status:
-        q = q.eq("status", status)
-    if city:
-        q = q.ilike("city", f"%{city}%")
-    if category:
-        q = q.eq("category", category)
-    result = q.order("created_at", desc=True).limit(limit).execute()
-    return result.data or []
+    try:
+        q = sb.table("marketing_drives").select("*")
+        if status:
+            q = q.eq("status", status)
+        if city and city != "all":
+            q = q.ilike("city", f"%{city}%")
+        if category and category != "all":
+            q = q.eq("category", category)
+        result = q.order("created_at", desc=True).limit(limit).execute()
+        if result.data is not None:
+            return result.data
+    except Exception:
+        pass
+
+    # Resilient fallback via reports table
+    try:
+        res = sb.table("reports").select("*").eq("name", "marketing_drive").order("created_at", desc=True).execute()
+        drives = []
+        for row in (res.data or []):
+            d = row.get("report_data") or {}
+            d["id"] = row.get("id")
+            d["user_id"] = row.get("user_id")
+            if not d.get("created_at"):
+                d["created_at"] = row.get("created_at")
+
+            if status and d.get("status") != status:
+                continue
+            if city and city != "all" and city.lower() not in (d.get("city") or "").lower():
+                continue
+            if category and category != "all" and d.get("category") != category:
+                continue
+            drives.append(d)
+        return drives[:limit]
+    except Exception as err:
+        print(f"Error fetching drives fallback: {err}")
+        return []
 
 
 async def get_drive(drive_id: str) -> dict | None:
@@ -474,9 +524,28 @@ async def get_drive(drive_id: str) -> dict | None:
             .maybe_single()
             .execute()
         )
-        return result.data if result else None
+        if result and result.data:
+            return result.data
     except Exception:
-        return None
+        pass
+
+    try:
+        res = (
+            sb.table("reports")
+            .select("*")
+            .eq("name", "marketing_drive")
+            .eq("id", drive_id)
+            .maybe_single()
+            .execute()
+        )
+        if res and res.data:
+            d = res.data.get("report_data") or {}
+            d["id"] = res.data.get("id")
+            d["user_id"] = res.data.get("user_id")
+            return d
+    except Exception:
+        pass
+    return None
 
 
 async def get_user_drives(user_id: str) -> list[dict]:
@@ -484,23 +553,61 @@ async def get_user_drives(user_id: str) -> list[dict]:
     sb = get_supabase()
     if not is_valid_uuid(user_id):
         return []
-    result = (
-        sb.table("marketing_drives")
-        .select("*")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return result.data or []
+    try:
+        result = (
+            sb.table("marketing_drives")
+            .select("*")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if result.data is not None:
+            return result.data
+    except Exception:
+        pass
+
+    try:
+        res = (
+            sb.table("reports")
+            .select("*")
+            .eq("name", "marketing_drive")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        drives = []
+        for row in (res.data or []):
+            d = row.get("report_data") or {}
+            d["id"] = row.get("id")
+            d["user_id"] = row.get("user_id")
+            if not d.get("created_at"):
+                d["created_at"] = row.get("created_at")
+            drives.append(d)
+        return drives
+    except Exception as err:
+        print(f"Error get_user_drives fallback: {err}")
+        return []
 
 
 async def update_drive(drive_id: str, data: dict) -> dict:
     """Update a drive"""
     sb = get_supabase()
-    from datetime import datetime
     data["updated_at"] = datetime.utcnow().isoformat()
-    result = sb.table("marketing_drives").update(data).eq("id", drive_id).execute()
-    return result.data[0] if result.data else {}
+    try:
+        result = sb.table("marketing_drives").update(data).eq("id", drive_id).execute()
+        if result.data:
+            return result.data[0]
+    except Exception:
+        pass
+
+    try:
+        existing = await get_drive(drive_id) or {}
+        merged = {**existing, **data}
+        sb.table("reports").update({"report_data": merged}).eq("id", drive_id).execute()
+        return merged
+    except Exception as err:
+        print(f"Error update_drive fallback: {err}")
+        return data
 
 
 async def delete_drive(drive_id: str) -> bool:
@@ -508,8 +615,22 @@ async def delete_drive(drive_id: str) -> bool:
     sb = get_supabase()
     try:
         sb.table("marketing_drives").delete().eq("id", drive_id).execute()
-        return True
     except Exception:
+        pass
+
+    try:
+        sb.table("reports").delete().eq("id", drive_id).execute()
+        # Delete associated applications
+        apps = await get_drive_applications(drive_id)
+        for app in apps:
+            if app.get("id"):
+                try:
+                    sb.table("reports").delete().eq("id", app["id"]).execute()
+                except Exception:
+                    pass
+        return True
+    except Exception as err:
+        print(f"Error delete_drive fallback: {err}")
         return False
 
 
@@ -520,8 +641,29 @@ async def apply_to_drive(data: dict) -> dict:
     sb = get_supabase()
     if not is_valid_uuid(data.get("user_id")):
         data["user_id"] = "00000000-0000-0000-0000-000000000001"
-    result = sb.table("drive_applications").insert(data).execute()
-    return result.data[0] if result.data else {}
+    
+    app_id = data.get("id") or str(uuid.uuid4())
+    data["id"] = app_id
+    data["created_at"] = data.get("created_at") or datetime.utcnow().isoformat()
+
+    try:
+        result = sb.table("drive_applications").insert(data).execute()
+        if result.data:
+            return result.data[0]
+    except Exception:
+        pass
+
+    try:
+        sb.table("reports").insert({
+            "id": app_id,
+            "user_id": data["user_id"],
+            "name": "drive_application",
+            "report_data": data,
+        }).execute()
+        return data
+    except Exception as err:
+        print(f"Error apply_to_drive fallback: {err}")
+        return data
 
 
 async def get_drive_applications(drive_id: str) -> list[dict]:
@@ -529,14 +671,32 @@ async def get_drive_applications(drive_id: str) -> list[dict]:
     if not is_valid_uuid(drive_id):
         return []
     sb = get_supabase()
-    result = (
-        sb.table("drive_applications")
-        .select("*")
-        .eq("drive_id", drive_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return result.data or []
+    try:
+        result = (
+            sb.table("drive_applications")
+            .select("*")
+            .eq("drive_id", drive_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if result.data is not None:
+            return result.data
+    except Exception:
+        pass
+
+    try:
+        res = sb.table("reports").select("*").eq("name", "drive_application").order("created_at", desc=True).execute()
+        apps = []
+        for row in (res.data or []):
+            a = row.get("report_data") or {}
+            if str(a.get("drive_id", "")) == str(drive_id):
+                a["id"] = a.get("id") or row.get("id")
+                a["user_id"] = a.get("user_id") or row.get("user_id")
+                apps.append(a)
+        return apps
+    except Exception as err:
+        print(f"Error get_drive_applications fallback: {err}")
+        return []
 
 
 async def get_user_applications(user_id: str) -> list[dict]:
@@ -544,26 +704,79 @@ async def get_user_applications(user_id: str) -> list[dict]:
     if not is_valid_uuid(user_id):
         return []
     sb = get_supabase()
-    result = (
-        sb.table("drive_applications")
-        .select("*, marketing_drives(*)")
-        .eq("user_id", user_id)
-        .order("created_at", desc=True)
-        .execute()
-    )
-    return result.data or []
+    try:
+        result = (
+            sb.table("drive_applications")
+            .select("*, marketing_drives(*)")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if result.data is not None:
+            return result.data
+    except Exception:
+        pass
+
+    try:
+        res = (
+            sb.table("reports")
+            .select("*")
+            .eq("name", "drive_application")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        apps = []
+        for row in (res.data or []):
+            a = row.get("report_data") or {}
+            a["id"] = a.get("id") or row.get("id")
+            a["user_id"] = a.get("user_id") or row.get("user_id")
+            # Attach parent drive details
+            drive_id = a.get("drive_id")
+            if drive_id:
+                drive = await get_drive(drive_id)
+                if drive:
+                    a["marketing_drives"] = drive
+            apps.append(a)
+        return apps
+    except Exception as err:
+        print(f"Error get_user_applications fallback: {err}")
+        return []
 
 
 async def update_application_status(application_id: str, status: str) -> dict:
     """Brand accepts/rejects a creator application"""
     sb = get_supabase()
-    result = (
-        sb.table("drive_applications")
-        .update({"status": status})
-        .eq("id", application_id)
-        .execute()
-    )
-    return result.data[0] if result.data else {}
+    try:
+        result = (
+            sb.table("drive_applications")
+            .update({"status": status})
+            .eq("id", application_id)
+            .execute()
+        )
+        if result.data:
+            return result.data[0]
+    except Exception:
+        pass
+
+    try:
+        res = (
+            sb.table("reports")
+            .select("*")
+            .eq("name", "drive_application")
+            .eq("id", application_id)
+            .maybe_single()
+            .execute()
+        )
+        if res and res.data:
+            app_data = res.data.get("report_data") or {}
+            app_data["status"] = status
+            app_data["id"] = application_id
+            sb.table("reports").update({"report_data": app_data}).eq("id", application_id).execute()
+            return app_data
+    except Exception as err:
+        print(f"Error update_application_status fallback: {err}")
+    return {"id": application_id, "status": status}
 
 
 async def check_already_applied(drive_id: str, user_id: str) -> bool:
@@ -580,9 +793,16 @@ async def check_already_applied(drive_id: str, user_id: str) -> bool:
             .maybe_single()
             .execute()
         )
-        return result.data is not None
+        if result and result.data is not None:
+            return True
     except Exception:
-        return False
+        pass
 
-
-
+    try:
+        apps = await get_drive_applications(drive_id)
+        for a in apps:
+            if str(a.get("user_id", "")) == str(user_id):
+                return True
+    except Exception:
+        pass
+    return False

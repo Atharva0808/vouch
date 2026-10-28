@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import {
     getDrives,
+    getDrive,
     getMyDrives,
     getMyApplications,
     createDrive,
@@ -193,6 +194,18 @@ export default function MarketingDrivesPage() {
         }
     };
 
+    const handleOpenReviewApplicants = async (drive: MarketingDrive) => {
+        setViewApplicantsDrive(drive);
+        try {
+            const full = await getDrive(drive.id);
+            if (full && full.applications) {
+                setViewApplicantsDrive(full);
+            }
+        } catch {
+            // retain existing
+        }
+    };
+
     const handleUpdateAppStatus = async (appId: string, status: string) => {
         try {
             await updateApplicationStatus(appId, status);
@@ -203,6 +216,7 @@ export default function MarketingDrivesPage() {
                 );
                 setViewApplicantsDrive({ ...viewApplicantsDrive, applications: updatedApps });
             }
+            loadDrivesData();
         } catch (err: any) {
             alert(err?.message || "Failed to update application status");
         }
@@ -489,7 +503,7 @@ export default function MarketingDrivesPage() {
 
                                         <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => setViewApplicantsDrive(drive)}
+                                                onClick={() => handleOpenReviewApplicants(drive)}
                                                 className="neo-btn bg-neo-yellow text-neo-black px-4 py-2 rounded-xl text-xs font-black flex items-center gap-1.5"
                                             >
                                                 <Eye size={14} /> Review Applicants ({drive.applications?.length || drive.applications_count || 0})

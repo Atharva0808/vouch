@@ -57,21 +57,53 @@ export async function getEffectiveUserId(): Promise<string> {
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
     const userId = await getEffectiveUserId();
 
-    const res = await fetch(`${BACKEND_URL}${path}`, {
-        headers: {
-            "Content-Type": "application/json",
-            "X-User-Id": userId,
-            ...options.headers,
-        },
-        ...options,
-    });
+    const headers = {
+        "Content-Type": "application/json",
+        "X-User-Id": userId,
+        ...options.headers,
+    };
 
-    if (!res.ok) {
+    // 1. Try primary backend
+    try {
+        const res = await fetch(`${BACKEND_URL}${path}`, {
+            headers,
+            ...options,
+        });
+
+        if (res.ok) {
+            return res.json();
+        }
+
+        // If backend returned 500/502/503/404 and we are in browser, try local Next.js API route
+        if (typeof window !== "undefined" && (res.status >= 500 || res.status === 404)) {
+            try {
+                const localRes = await fetch(path, { headers, ...options });
+                if (localRes.ok) {
+                    return localRes.json();
+                }
+            } catch {
+                // Ignore fallback error and continue to report backend error
+            }
+        }
+
         const error = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(error.detail || `API error: ${res.status}`);
+    } catch (err: any) {
+        // 2. If network failed (e.g. "Failed to fetch" when Render is asleep or cold), try local Next.js API
+        if (typeof window !== "undefined") {
+            try {
+                const localRes = await fetch(path, { headers, ...options });
+                if (localRes.ok) {
+                    return localRes.json();
+                }
+                const error = await localRes.json().catch(() => ({ detail: localRes.statusText }));
+                throw new Error(error.detail || `API error: ${localRes.status}`);
+            } catch (fallbackErr: any) {
+                throw new Error(fallbackErr?.message || err?.message || "Failed to fetch");
+            }
+        }
+        throw err;
     }
-
-    return res.json();
 }
 
 // ======== Influencer APIs ========

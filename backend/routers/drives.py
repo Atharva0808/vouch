@@ -70,6 +70,9 @@ async def list_drives(
 ):
     """Browse all active marketing drives (for creators to discover)"""
     drives = await db.get_drives(city=city, category=category, status=status)
+    for d in drives:
+        apps = await db.get_drive_applications(d.get("id", ""))
+        d["applications_count"] = len(apps)
     return {"drives": drives, "count": len(drives)}
 
 
@@ -78,6 +81,10 @@ async def get_my_drives(x_user_id: str | None = Header(None)):
     """Get all drives posted by the current user (brand)"""
     effective_user_id = get_effective_user_id(x_user_id)
     drives = await db.get_user_drives(effective_user_id)
+    for d in drives:
+        apps = await db.get_drive_applications(d.get("id", ""))
+        d["applications"] = apps
+        d["applications_count"] = len(apps)
     return {"drives": drives, "count": len(drives)}
 
 
