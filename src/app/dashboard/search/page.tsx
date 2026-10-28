@@ -38,6 +38,7 @@ function SearchContent() {
     const [loading, setLoading] = useState(false);
     const [fetchingNew, setFetchingNew] = useState(false);
     const [error, setError] = useState("");
+    const [fetchError, setFetchError] = useState("");
     const [fetchHandle, setFetchHandle] = useState("");
     const [fetchPlatform, setFetchPlatform] = useState("instagram");
     const [fetchStatus, setFetchStatus] = useState("Analyzing...");
@@ -83,7 +84,8 @@ function SearchContent() {
     const handleFetchNew = async () => {
         if (!fetchHandle.trim()) return;
         setFetchingNew(true);
-        setFetchStatus("Pulling profile...");
+        setFetchStatus("Pulling profile from RapidAPI...");
+        setFetchError("");
         setError("");
 
         const timer1 = setTimeout(() => setFetchStatus("AI analysis..."), 2500);
@@ -93,8 +95,9 @@ function SearchContent() {
             const data = await fetchInfluencer(fetchHandle, fetchPlatform);
             // Add the new profile to results
             setResults((prev) => [data.profile, ...prev.filter(inf => inf.id !== data.profile.id)]);
+            setFetchHandle("");
         } catch (err: any) {
-            setError(err.message || "Failed to fetch influencer data");
+            setFetchError(err.message || "Failed to fetch influencer data");
         } finally {
             clearTimeout(timer1);
             clearTimeout(timer2);
@@ -175,6 +178,34 @@ function SearchContent() {
                         )}
                     </motion.button>
                 </div>
+
+                {/* Audit Error Notification with Actionable Guidance */}
+                {fetchError && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-4 p-4 rounded-xl bg-red-50 border-2 border-red-500/40 text-xs text-red-900 font-medium"
+                    >
+                        <div className="flex items-start gap-2.5">
+                            <span className="text-base leading-none">⚠️</span>
+                            <div className="flex-1 space-y-2">
+                                <p className="font-bold text-red-950">{fetchError}</p>
+                                {fetchError.includes("http") && (
+                                    <div>
+                                        <a
+                                            href={fetchError.match(/https?:\/\/[^\s\)]+/)?.[0] || "https://rapidapi.com/rocksolid-apis-rocksolid-apis-default/api/instagram-scraper-api2"}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--color-neo-black)] text-white text-[11px] font-black uppercase hover:bg-neutral-800 transition-colors shadow-sm"
+                                        >
+                                            👉 Open RapidAPI to Subscribe (Free Plan)
+                                        </a>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
             </motion.div>
 
             {/* Search Database */}

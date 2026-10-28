@@ -140,30 +140,15 @@ export default function OnboardingPage() {
             const data = await fetchInfluencer(cleanHandle, creatorPlatform);
             if (data && data.profile) {
                 setAiStats({
-                    followers: data.profile.followers || 42500,
-                    engagementRate: data.profile.engagement_rate || 4.8,
-                    safetyScore: data.sentiment?.brand_safety_score || 94,
-                    matchScore: data.match?.match_score || 96,
+                    followers: data.profile.followers || 0,
+                    engagementRate: data.profile.engagement_rate || 0,
+                    safetyScore: data.sentiment?.brand_safety_score || 0,
+                    matchScore: data.match?.match_score || 0,
                 });
-            } else {
-                // Fallback simulation
-                setAiStats({
-                    followers: 38400,
-                    engagementRate: 5.2,
-                    safetyScore: 98,
-                    matchScore: 95,
-                });
+                setVouchAiConnected(true);
             }
-            setVouchAiConnected(true);
         } catch (err) {
-            // Simulated AI verification if backend is offline
-            setAiStats({
-                followers: 26800,
-                engagementRate: 4.6,
-                safetyScore: 95,
-                matchScore: 92,
-            });
-            setVouchAiConnected(true);
+            console.warn("RapidAPI Creator Fetch note:", err);
         } finally {
             setVouchAiConnecting(false);
         }
@@ -327,10 +312,10 @@ export default function OnboardingPage() {
                         user_id: user.id,
                         location: `${creatorArea || 'Kalyan'}, ${creatorCity || 'Navi Mumbai'}`,
                         niche: [creatorNiche],
-                        followers: aiStats?.followers || 42500,
-                        engagement_rate: aiStats?.engagementRate || 4.8,
-                        brand_safety_score: aiStats?.safetyScore || 94,
-                        match_score: aiStats?.matchScore || 96,
+                        followers: aiStats?.followers || 0,
+                        engagement_rate: aiStats?.engagementRate || 0,
+                        brand_safety_score: aiStats?.safetyScore || 0,
+                        match_score: aiStats?.matchScore || 0,
                         risk_level: "low",
                         recommendation: "Locally Verified Creator",
                     }, { onConflict: "handle,platform,user_id" });

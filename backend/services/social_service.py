@@ -32,85 +32,7 @@ INSTAGRAM_HOST = os.getenv("INSTAGRAM_HOST", "instagram-scraper-api2.p.rapidapi.
 YOUTUBE_HOST = os.getenv("YOUTUBE_HOST", "youtube138.p.rapidapi.com")
 
 
-# ======== Instagram (via instagram120) ========
-
-async def _resolve_real_creator_photo(name: str, handle: str) -> str:
-    """Find real creator profile photo via Wikimedia / Wikipedia public encyclopedia API or Dumpor public mirror.
-    Returns authentic permanent photo URL or a branded fallback."""
-    clean_n = (name or "").strip()
-    clean_h = (handle or "").replace("@", "").replace(".", " ").replace("_", " ").lower().strip()
-    raw_handle = (handle or "").replace("@", "").strip().lower()
-    
-    headers = {"User-Agent": "InfluenceIQ/1.0 (contact@influenceiq.com)"}
-    
-    # 1. Check Wikipedia for famous creators/athletes/influencers (skip pure digits like 433 to avoid asteroids)
-    if not raw_handle.isdigit():
-        queries = []
-        if clean_n and clean_h:
-            queries.append(f"{clean_n} {clean_h}")
-        if clean_n:
-            queries.append(clean_n)
-        if raw_handle:
-            queries.append(raw_handle)
-            
-        # Add stripped handle without common prefixes (e.g. ig_mortal -> mortal)
-        stripped = re.sub(r'^(ig_|iam|the|official_|real_)', '', raw_handle)
-        stripped = re.sub(r'(_official|_real|_yt|_gaming)$', '', stripped)
-        if stripped and stripped != raw_handle and len(stripped) > 2:
-            queries.extend([f"{stripped} gamer", f"{stripped} creator", f"{stripped} youtube", stripped])
-            
-        try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                for q in queries:
-                    sr = await client.get(
-                        "https://en.wikipedia.org/w/api.php",
-                        params={"action": "query", "format": "json", "list": "search", "srsearch": q, "srlimit": "4"},
-                        headers=headers
-                    )
-                    if sr.status_code == 200:
-                        items = sr.json().get("query", {}).get("search", [])
-                        for item in items:
-                            title = item.get("title", "")
-                            clean_title = title.replace("_", " ").lower()
-                            name_parts = [p.lower() for p in clean_n.split() if len(p) > 2]
-                            handle_parts = [p.lower() for p in clean_h.split() if len(p) > 2]
-                            if stripped:
-                                handle_parts.append(stripped.lower())
-                            if any(np in clean_title for np in name_parts) or any(hp in clean_title for hp in handle_parts):
-                                page_slug = title.replace(" ", "_")
-                                pr = await client.get(
-                                    f"https://en.wikipedia.org/api/rest_v1/page/summary/{page_slug}",
-                                    headers=headers
-                                )
-                                if pr.status_code == 200:
-                                    thumb = pr.json().get("thumbnail", {}).get("source")
-                                    if thumb and thumb.startswith("http"):
-                                        return thumb
-        except Exception:
-            pass
-
-    # 2. Try greatfon / dumpor for unblocked avatar image
-    if raw_handle:
-        try:
-            async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
-                gr = await client.get(
-                    f"https://greatfon.io/v/{raw_handle}",
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                )
-                if gr.status_code == 200 and "media.dumpor.io" in gr.text:
-                    from bs4 import BeautifulSoup
-                    soup = BeautifulSoup(gr.text, "html.parser")
-                    for img in soup.find_all("img"):
-                        src = img.get("src", "")
-                        if "media.dumpor.io" in src and src.startswith("http"):
-                            return src
-        except Exception:
-            pass
-            
-    # Clean branded initials avatar fallback
-    initials = "+".join([w[0].upper() for w in clean_n.split()[:2]]) if clean_n else (raw_handle[:2].upper() or "IG")
-    return f"https://ui-avatars.com/api/?name={initials}&size=300&background=FF6B9D&color=fff&bold=true&format=png"
-
+# ======== Instagram (via RapidAPI) ========
 
 def _parse_social_num(val) -> int:
     """Parse number strings like 271.1M, 1.1K, 500, etc. to real integer counts"""
@@ -129,339 +51,308 @@ def _parse_social_num(val) -> int:
         return 0
 
 
-async def _fetch_real_instagram_live(clean_handle: str) -> dict | None:
-    """Live public scraper that pulls 100% REAL Instagram profile data directly with authentic follower count, bio, and real profile picture."""
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
-    
-    # Method 1: insta-stories-viewer.com (High-speed, real live data + authentic avatar)
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"https://insta-stories-viewer.com/{clean_handle}/",
-                headers=headers,
-                follow_redirects=True,
-            )
-            if resp.status_code == 200 and "profile__stats" in resp.text:
-                from bs4 import BeautifulSoup
-                soup = BeautifulSoup(resp.text, "html.parser")
-                f_tag = soup.find("span", {"class": "profile__stats-followers"})
-                p_tag = soup.find("span", {"class": "profile__stats-posts"})
-                w_tag = soup.find("span", {"class": "profile__stats-follows"})
-                bio_tag = soup.find("div", {"class": "profile__description"})
-                img_tag = soup.find("img", {"class": "profile__avatar-pic"})
-                nick_tag = soup.find("h1", {"class": "profile__nickname"})
-                
-                followers = _parse_social_num(f_tag.text if f_tag else 0)
-                posts = _parse_social_num(p_tag.text if p_tag else 0)
-                following = _parse_social_num(w_tag.text if w_tag else 0)
-                bio = bio_tag.text.strip() if bio_tag else ""
-                avatar = img_tag.get("src") if img_tag else ""
-                
-                raw_name = nick_tag.text.split("\n")[0].strip() if nick_tag else clean_handle
-                clean_name = raw_name.replace("(Anonymous profile view)", "").strip() or clean_handle
-                
-                # Verified badge
-                verified = followers >= 100_000
-                
-                # Realistic engagement rate benchmarks
-                if followers > 10_000_000:
-                    er = 1.85
-                elif followers > 1_000_000:
-                    er = 2.45
-                elif followers > 100_000:
-                    er = 3.25
-                elif followers > 10_000:
-                    er = 4.10
-                else:
-                    er = 4.80
-                    
-                total_eng = int(followers * (er / 100))
-                avg_likes = int(total_eng * 0.96)
-                avg_comments = int(total_eng * 0.04)
-                
-                # Inline the avatar as a base64 data URI so it NEVER expires or fails CORS/anti-hotlinking
-                stable_avatar = None
-                if avatar and avatar.startswith("http"):
-                    try:
-                        img_headers = {
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                            "Referer": "https://insta-stories-viewer.com/",
-                        }
-                        img_resp = await client.get(avatar, headers=img_headers, timeout=5.0)
-                        if img_resp.status_code == 200 and len(img_resp.content) > 200:
-                            b64_data = base64.b64encode(img_resp.content).decode("utf-8")
-                            mime = img_resp.headers.get("content-type") or "image/jpeg"
-                            stable_avatar = f"data:{mime};base64,{b64_data}"
-                    except Exception:
-                        pass
-                
-                if not stable_avatar:
-                    stable_avatar = await _resolve_real_creator_photo(clean_name, clean_handle)
-                    
-                avatar = stable_avatar or avatar
-                    
-                location = _detect_location_from_bio_or_captions(bio, clean_name, [bio])
-                niche = _detect_niche_from_bio(bio, clean_name, [bio])
-                
-                recent_posts = [
-                    {"id": f"p1_{clean_handle}", "caption": bio or f"Latest post from @{clean_handle}", "likes": avg_likes, "comments": avg_comments, "posted_at": "1 day ago"},
-                    {"id": f"p2_{clean_handle}", "caption": f"Creating authentic community moments #lifestyle", "likes": int(avg_likes * 0.95), "comments": int(avg_comments * 0.9), "posted_at": "3 days ago"},
-                    {"id": f"p3_{clean_handle}", "caption": f"Collaborations & inquiries: @{clean_handle}", "likes": int(avg_likes * 1.05), "comments": int(avg_comments * 1.1), "posted_at": "5 days ago"}
-                ]
-                
-                return {
-                    "name": clean_name,
-                    "handle": f"@{clean_handle}",
-                    "platform": "instagram",
-                    "avatar_url": avatar,
-                    "followers": followers,
-                    "following": following,
-                    "posts": posts,
-                    "engagement_rate": er,
-                    "avg_likes": avg_likes,
-                    "avg_comments": avg_comments,
-                    "verified": verified,
-                    "bio": bio,
-                    "location": location,
-                    "niche": niche,
-                    "recent_posts": recent_posts,
-                }
-    except Exception as e:
-        print(f"Live Instagram scraper notice: {e}")
-        
-    return None
-
-
-async def _fetch_instagram_profile_ai(clean_handle: str) -> dict:
-    """Intelligent creator intelligence engine using Groq LLM with real photo discovery.
-    For known/famous creators, returns their real public metrics and real photo.
-    For unknown handles, returns realistic estimated metrics with clean branded avatar."""
-    groq_key = os.getenv("GROQ_API_KEY", "")
-    if not groq_key:
-        raise Exception(f"Unable to fetch @{clean_handle}: Social intelligence service temporarily unavailable.")
-    
-    try:
-        from groq import Groq
-        ai_client = Groq(api_key=groq_key)
-        prompt = f"""You are an elite Instagram intelligence engine. Look up public data for handle: @{clean_handle}
-
-CRITICAL RULES:
-1. If this is a FAMOUS or KNOWN creator, brand, publisher, streamer, athlete, or influencer (e.g. 433, virat.kohli, cristiano, mrbeast, carryminati, ig_mortal, bhuvan.bam22, technicalguruji, scoutop, mortal, totalgaming_official, triggeredinsaan, ashishchanchlani, etc.):
-   - Return their ACTUAL REAL-WORLD metrics from your knowledge base.
-   - For example: 433 has ~79,000,000 followers (Name: 433 | The Home of Football, Niche: Football/Sports), virat.kohli has ~270,000,000 followers, cristiano has ~650,000,000 followers, mrbeast has ~60,000,000 IG followers, ig_mortal has ~4,800,000 followers (Name: Naman Mathur, Niche: Gaming), carryminati has ~21,000,000 followers. DO NOT return placeholder small numbers for famous accounts!
-   - Set "name" to their real-world personal name or brand name (e.g. "433", "Naman Mathur (Mortal)", "Ajey Nagar (CarryMinati)", "Virat Kohli").
-   - Set "verified" to true.
-   - Return their actual location and accurate biography.
-2. If this handle is an ordinary or unknown account, return realistic conservative estimates (e.g. 5,000 to 50,000 followers) and set "verified" to false.
-3. For location, provide their known city/country (e.g. "Mumbai, India", "Lisbon, Portugal", "Los Angeles, USA") or "" if unknown.
-
-Return strictly valid JSON:
-{{
-  "name": "Full Name",
-  "handle": "@{clean_handle}",
-  "bio": "Bio description",
-  "followers": 270000000,
-  "following": 250,
-  "posts": 1600,
-  "avg_likes": 2500000,
-  "avg_comments": 15000,
-  "engagement_rate": 2.45,
-  "verified": true,
-  "location": "City, Country",
-  "niche": ["Sports", "Fitness"],
-  "recent_posts": [
-    {{"caption": "Recent post caption", "likes": 2600000, "comments": 16000}},
-    {{"caption": "Another post caption", "likes": 2400000, "comments": 14000}},
-    {{"caption": "Third post caption", "likes": 2700000, "comments": 17000}}
-  ]
-}}"""
-        resp = ai_client.chat.completions.create(
-            model="openai/gpt-oss-20b",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        import json
-        raw = resp.choices[0].message.content.strip()
-        if "```json" in raw:
-            raw = raw.split("```json")[1].split("```")[0].strip()
-        elif "```" in raw:
-            raw = raw.split("```")[1].split("```")[0].strip()
-        data = json.loads(raw)
-        data["platform"] = "instagram"
-        data["handle"] = f"@{clean_handle}"
-        
-        # Resolve real profile picture
-        name = data.get("name", clean_handle)
-        data["avatar_url"] = await _resolve_real_creator_photo(name, clean_handle)
-        return data
-    except Exception as e:
-        raise Exception(f"Failed to analyze @{clean_handle}: {str(e)}")
-
-
 async def fetch_instagram_profile(handle: str) -> dict:
-    """Fetch real Instagram profile data via RapidAPI with resilient AI intelligence fallback"""
+    """Fetch real Instagram profile data strictly via RapidAPI (No Wikipedia, No synthetic AI data)."""
     clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
     
-    # 1. Try RapidAPI first if key is present
-    if RAPIDAPI_KEY and INSTAGRAM_HOST:
-        try:
-            rapid_headers = {
-                "x-rapidapi-key": RAPIDAPI_KEY,
-                "x-rapidapi-host": INSTAGRAM_HOST,
-                "Content-Type": "application/json"
-            }
-            endpoints = [
-                ("GET", f"https://{INSTAGRAM_HOST}/v1/info", {"username_or_id_or_url": clean_handle}),
-                ("GET", f"https://{INSTAGRAM_HOST}/user/details-by-username/", {"username": clean_handle}),
-                ("GET", f"https://{INSTAGRAM_HOST}/profile", {"username": clean_handle}),
-                ("POST", f"https://{INSTAGRAM_HOST}/api/instagram/profile", {"username": clean_handle}),
-            ]
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                for method, url, payload in endpoints:
-                    try:
-                        if method == "GET":
-                            resp = await client.get(url, params=payload, headers=rapid_headers)
-                        else:
-                            resp = await client.post(url, json=payload, headers=rapid_headers)
+    if not RAPIDAPI_KEY:
+        raise Exception(
+            "RapidAPI Key is missing. Please set RAPIDAPI_KEY in your backend/.env and .env.local files."
+        )
+    
+    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-api2.p.rapidapi.com"
+    
+    rapid_headers = {
+        "x-rapidapi-key": RAPIDAPI_KEY,
+        "x-rapidapi-host": host,
+        "Content-Type": "application/json"
+    }
+    
+    # Endpoints supported across major RapidAPI Instagram providers:
+    # 1. RockSolid APIs: instagram-scraper-api2.p.rapidapi.com (/v1/info)
+    # 2. General scraper endpoints (/user/details-by-username/, /profile, /user_info)
+    # 3. Post profile endpoints (/api/instagram/profile)
+    endpoints = [
+        ("GET", f"https://{host}/v1/info", {"username_or_id_or_url": clean_handle}),
+        ("GET", f"https://{host}/user/details-by-username/", {"username": clean_handle}),
+        ("GET", f"https://{host}/profile", {"username": clean_handle}),
+        ("GET", f"https://{host}/user_info", {"username": clean_handle}),
+        ("GET", f"https://{host}/api/instagram/profile", {"username": clean_handle}),
+        ("POST", f"https://{host}/api/instagram/profile", {"username": clean_handle}),
+    ]
+    
+    last_status = None
+    last_error_text = ""
+    is_unsubscribed = False
+    is_rate_limited = False
+    is_not_found = False
+    
+    async with httpx.AsyncClient(timeout=12.0) as client:
+        for method, url, payload in endpoints:
+            try:
+                if method == "GET":
+                    resp = await client.get(url, params=payload, headers=rapid_headers)
+                else:
+                    resp = await client.post(url, json=payload, headers=rapid_headers)
+                
+                last_status = resp.status_code
+                last_error_text = resp.text
+                
+                if resp.status_code == 403 or "not subscribed" in resp.text.lower():
+                    is_unsubscribed = True
+                elif resp.status_code == 429 or "too many requests" in resp.text.lower():
+                    is_rate_limited = True
+                elif resp.status_code == 404:
+                    is_not_found = True
+                
+                if resp.status_code == 200:
+                    data = resp.json()
+                    p_data = data.get("data") or data.get("result") or data.get("user") or data
+                    if isinstance(p_data, dict):
+                        # Extract authentic follower count
+                        followers = (
+                            p_data.get("follower_count")
+                            or p_data.get("followers")
+                            or p_data.get("edge_followed_by", {}).get("count", 0)
+                            or 0
+                        )
+                        if isinstance(followers, str):
+                            followers = _parse_social_num(followers)
+                            
+                        full_name = p_data.get("full_name") or p_data.get("name") or clean_handle
+                        bio = p_data.get("biography") or p_data.get("bio") or ""
+                        avatar = (
+                            p_data.get("profile_pic_url_hd")
+                            or p_data.get("profile_pic_url")
+                            or p_data.get("avatar_url")
+                            or ""
+                        )
+                        following = (
+                            p_data.get("following_count")
+                            or p_data.get("following")
+                            or p_data.get("edge_follow", {}).get("count", 0)
+                            or 0
+                        )
+                        if isinstance(following, str):
+                            following = _parse_social_num(following)
+                            
+                        posts_count = (
+                            p_data.get("media_count")
+                            or p_data.get("posts")
+                            or p_data.get("edge_owner_to_timeline_media", {}).get("count", 0)
+                            or 0
+                        )
+                        if isinstance(posts_count, str):
+                            posts_count = _parse_social_num(posts_count)
+                            
+                        verified = bool(p_data.get("is_verified", False))
                         
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            p_data = data.get("data") or data.get("result") or data.get("user") or data
-                            if isinstance(p_data, dict):
-                                followers = (
-                                    p_data.get("follower_count")
-                                    or p_data.get("followers")
-                                    or p_data.get("edge_followed_by", {}).get("count", 0)
+                        # Parse authentic recent posts if returned by the API
+                        recent_posts = []
+                        raw_posts = (
+                            p_data.get("edge_owner_to_timeline_media", {}).get("edges", [])
+                            or p_data.get("items", [])
+                            or p_data.get("posts", [])
+                        )
+                        total_likes = 0
+                        total_comments = 0
+                        post_count_with_stats = 0
+                        
+                        if isinstance(raw_posts, list):
+                            for p in raw_posts[:12]:
+                                node = p.get("node", p) if isinstance(p, dict) else {}
+                                likes = (
+                                    node.get("like_count")
+                                    or node.get("edge_media_preview_like", {}).get("count", 0)
+                                    or node.get("likes_count", 0)
+                                    or node.get("likes", 0)
                                     or 0
                                 )
-                                if followers > 0:
-                                    full_name = p_data.get("full_name") or p_data.get("name") or clean_handle
-                                    bio = p_data.get("biography") or p_data.get("bio") or ""
-                                    avatar = (
-                                        p_data.get("profile_pic_url_hd")
-                                        or p_data.get("profile_pic_url")
-                                        or p_data.get("avatar_url")
-                                        or ""
-                                    )
-                                    following = (
-                                        p_data.get("following_count")
-                                        or p_data.get("following")
-                                        or p_data.get("edge_follow", {}).get("count", 0)
-                                        or 0
-                                    )
-                                    posts_count = (
-                                        p_data.get("media_count")
-                                        or p_data.get("posts")
-                                        or p_data.get("edge_owner_to_timeline_media", {}).get("count", 0)
-                                        or 0
-                                    )
+                                comments = (
+                                    node.get("comment_count")
+                                    or node.get("edge_media_to_comment", {}).get("count", 0)
+                                    or node.get("comments_count", 0)
+                                    or node.get("comments", 0)
+                                    or 0
+                                )
+                                raw_cap = node.get("caption")
+                                if isinstance(raw_cap, dict):
+                                    cap_text = raw_cap.get("text", "")
+                                elif isinstance(raw_cap, str):
+                                    cap_text = raw_cap
+                                else:
+                                    cap_edges = node.get("edge_media_to_caption", {}).get("edges", [])
+                                    cap_text = cap_edges[0].get("node", {}).get("text", "") if cap_edges else ""
                                     
-                                    er = 2.45
-                                    avg_likes = max(1, int(followers * (er / 100) * 0.95))
-                                    avg_comments = max(1, int(followers * (er / 100) * 0.05))
+                                if likes > 0 or comments > 0:
+                                    total_likes += int(likes)
+                                    total_comments += int(comments)
+                                    post_count_with_stats += 1
                                     
-                                    return {
-                                        "name": full_name,
-                                        "handle": f"@{clean_handle}",
-                                        "platform": "instagram",
-                                        "avatar_url": avatar or await _resolve_real_creator_photo(full_name, clean_handle),
-                                        "followers": followers,
-                                        "following": following,
-                                        "posts": posts_count,
-                                        "engagement_rate": er,
-                                        "avg_likes": avg_likes,
-                                        "avg_comments": avg_comments,
-                                        "verified": p_data.get("is_verified", False),
-                                        "bio": bio,
-                                        "location": _detect_location_from_bio_or_captions(bio, full_name, [bio]),
-                                        "niche": _detect_niche_from_bio(bio, full_name, [bio]),
-                                        "recent_posts": [],
-                                    }
-                    except Exception:
-                        continue
-        except Exception as e:
-            print(f"Notice: RapidAPI fetch notice for @{clean_handle}: {e}")
+                                recent_posts.append({
+                                    "id": node.get("id") or node.get("pk") or f"p_{len(recent_posts)}",
+                                    "thumbnail": node.get("display_url") or node.get("thumbnail_src") or node.get("thumbnail_url") or "",
+                                    "likes": int(likes),
+                                    "comments": int(comments),
+                                    "caption": cap_text,
+                                    "posted_at": node.get("taken_at_timestamp") or node.get("taken_at")
+                                })
+                        
+                        # If profile endpoint did not include posts, try fetching recent posts feed
+                        if post_count_with_stats == 0:
+                            try:
+                                post_resp = await client.get(
+                                    f"https://{host}/v1/posts",
+                                    params={"username_or_id_or_url": clean_handle},
+                                    headers=rapid_headers,
+                                    timeout=8.0,
+                                )
+                                if post_resp.status_code == 200:
+                                    feed = post_resp.json().get("data", {}).get("items", []) or post_resp.json().get("data", []) or []
+                                    if isinstance(feed, list):
+                                        for p in feed[:12]:
+                                            if not isinstance(p, dict):
+                                                continue
+                                            p_likes = p.get("like_count") or p.get("likes", 0) or 0
+                                            p_comments = p.get("comment_count") or p.get("comments", 0) or 0
+                                            c_obj = p.get("caption")
+                                            c_txt = c_obj.get("text", "") if isinstance(c_obj, dict) else str(c_obj or "")
+                                            if p_likes > 0 or p_comments > 0:
+                                                total_likes += int(p_likes)
+                                                total_comments += int(p_comments)
+                                                post_count_with_stats += 1
+                                            recent_posts.append({
+                                                "id": p.get("id") or p.get("pk") or f"p_{len(recent_posts)}",
+                                                "thumbnail": p.get("display_url") or p.get("thumbnail_url") or "",
+                                                "likes": int(p_likes),
+                                                "comments": int(p_comments),
+                                                "caption": c_txt,
+                                                "posted_at": p.get("taken_at")
+                                            })
+                            except Exception:
+                                pass
 
-    # 2. Live Real-Time Instagram Scraper (Direct authentic metrics & verified photos)
-    try:
-        live_profile = await _fetch_real_instagram_live(clean_handle)
-        if live_profile and live_profile.get("followers", 0) > 0:
-            return live_profile
-    except Exception as e:
-        print(f"Notice: live scraper exception for @{clean_handle}: {e}")
-
-    # 3. Known creator / public figure entity lookup with authentic metrics & real photo resolution
-    try:
-        ai_profile = await _fetch_instagram_profile_ai(clean_handle)
-        if ai_profile and ai_profile.get("followers", 0) > 0:
-            creator_name = ai_profile.get("name", "")
-            # Try to resolve real creator photo from Wikipedia
-            wiki_photo = await _resolve_real_creator_photo(creator_name, clean_handle)
-            if wiki_photo and "wikimedia.org" in wiki_photo:
-                ai_profile["avatar_url"] = wiki_photo
-            return ai_profile
-    except Exception as e:
-        print(f"Notice: AI profile lookup exception for @{clean_handle}: {e}")
-
-    # 4. If account doesn't exist or cannot be reached
-    raise Exception(f"Instagram profile @{clean_handle} could not be found or is private. Please verify the handle.")
+                        if post_count_with_stats > 0:
+                            avg_likes = total_likes // post_count_with_stats
+                            avg_comments = total_comments // post_count_with_stats
+                            er = round(((avg_likes + avg_comments) / max(1, followers)) * 100, 2)
+                        else:
+                            # Standard engagement benchmark based on real follower tier
+                            if followers > 10_000_000:
+                                er = 1.85
+                            elif followers > 1_000_000:
+                                er = 2.45
+                            elif followers > 100_000:
+                                er = 3.25
+                            elif followers > 10_000:
+                                er = 4.10
+                            else:
+                                er = 4.80
+                            total_eng = int(followers * (er / 100))
+                            avg_likes = max(1, int(total_eng * 0.95))
+                            avg_comments = max(1, int(total_eng * 0.05))
+                        
+                        caption_texts = [p.get("caption", "") for p in recent_posts if p.get("caption")]
+                        
+                        return {
+                            "name": full_name,
+                            "handle": f"@{clean_handle}",
+                            "platform": "instagram",
+                            "avatar_url": avatar,
+                            "followers": followers,
+                            "following": following,
+                            "posts": posts_count,
+                            "engagement_rate": er,
+                            "avg_likes": avg_likes,
+                            "avg_comments": avg_comments,
+                            "verified": verified,
+                            "bio": bio,
+                            "location": _detect_location_from_bio_or_captions(bio, full_name, caption_texts or [bio]),
+                            "niche": _detect_niche_from_bio(bio, full_name, caption_texts or [bio]),
+                            "recent_posts": recent_posts,
+                        }
+            except Exception as ep_err:
+                last_error_text = str(ep_err)
+                continue
+                
+    # If RapidAPI returned errors, provide clear, actionable status messages
+    if is_unsubscribed or last_status == 403 or "not subscribed" in last_error_text.lower():
+        raise Exception(
+            f"RapidAPI Subscription Required (403): Your RapidAPI key is not subscribed to Instagram API ({host}). "
+            f"Please open RapidAPI and click 'Subscribe to Test' (Free tier) at: "
+            f"https://rapidapi.com/rocksolid-apis-rocksolid-apis-default/api/instagram-scraper-api2 "
+            f"or update INSTAGRAM_HOST in backend/.env with your subscribed RapidAPI host."
+        )
+    elif is_rate_limited or last_status == 429 or "too many requests" in last_error_text.lower():
+        raise Exception(
+            f"RapidAPI Rate Limit Exceeded (429): Quota reached for {host}. Please wait or upgrade your plan."
+        )
+    elif is_not_found or last_status == 404:
+        raise Exception(
+            f"Instagram profile @{clean_handle} could not be found or is private on RapidAPI ({host})."
+        )
+    else:
+        raise Exception(
+            f"Failed to fetch Instagram profile @{clean_handle} via RapidAPI ({host}). "
+            f"{last_error_text[:140] if last_error_text else 'Endpoint did not return valid profile data.'}"
+        )
 
 
 async def fetch_instagram_comments(handle: str, profile: dict = None) -> list[str]:
-    """Fetch real post captions for sentiment analysis"""
+    """Fetch real post captions for sentiment analysis via RapidAPI"""
     if profile and profile.get("recent_posts"):
         captions = [p.get("caption", "") for p in profile.get("recent_posts", []) if isinstance(p, dict) and p.get("caption")]
         if captions:
             return captions
 
+    host = os.getenv("INSTAGRAM_HOST") or INSTAGRAM_HOST or "instagram-scraper-api2.p.rapidapi.com"
     headers = {
         **HEADERS,
-        "x-rapidapi-host": INSTAGRAM_HOST,
+        "x-rapidapi-host": host,
         "Content-Type": "application/json"
     }
     
+    clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
+    
     try:
-        async with httpx.AsyncClient(timeout=6.0) as client:
-            clean_handle = handle.replace("@", "").replace(" ", "").lower().strip()
-            resp = await client.post(
-                f"https://{INSTAGRAM_HOST}/api/instagram/posts",
-                json={"username": clean_handle},
-                headers=headers,
-            )
-            
-            if resp.status_code == 200:
-                posts_data = resp.json().get("result", {}).get("edges", [])
-                captions = []
-                for edge in posts_data[:12]:
-                    node = edge.get("node", {})
-                    raw_caption = node.get("caption")
-                    if isinstance(raw_caption, dict):
-                        text = raw_caption.get("text", "")
-                    elif isinstance(raw_caption, str):
-                        text = raw_caption
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            endpoints = [
+                ("GET", f"https://{host}/v1/posts", {"username_or_id_or_url": clean_handle}),
+                ("POST", f"https://{host}/api/instagram/posts", {"username": clean_handle}),
+            ]
+            for method, url, payload in endpoints:
+                try:
+                    if method == "GET":
+                        resp = await client.get(url, params=payload, headers=headers)
                     else:
-                        caption_edges = node.get("edge_media_to_caption", {}).get("edges", [])
-                        text = caption_edges[0].get("node", {}).get("text", "") if caption_edges else ""
-                    if text:
-                        captions.append(text)
-                if captions:
-                    return captions
+                        resp = await client.post(url, json=payload, headers=headers)
+                        
+                    if resp.status_code == 200:
+                        posts_data = resp.json().get("result", {}).get("edges", []) or resp.json().get("data", {}).get("items", []) or resp.json().get("data", [])
+                        captions = []
+                        for edge in posts_data[:12]:
+                            node = edge.get("node", edge) if isinstance(edge, dict) else {}
+                            raw_caption = node.get("caption")
+                            if isinstance(raw_caption, dict):
+                                text = raw_caption.get("text", "")
+                            elif isinstance(raw_caption, str):
+                                text = raw_caption
+                            else:
+                                caption_edges = node.get("edge_media_to_caption", {}).get("edges", [])
+                                text = caption_edges[0].get("node", {}).get("text", "") if caption_edges else ""
+                            if text:
+                                captions.append(text)
+                        if captions:
+                            return captions
+                except Exception:
+                    continue
     except Exception:
         pass
 
-    # High-quality contextual comments fallback for sentiment analysis
-    name = profile.get("name", handle) if profile else handle
-    return [
-        f"Love the authentic energy and consistency from {name}!",
-        f"Always inspiring content, great quality production.",
-        f"Top tier recommendations every single time.",
-        f"Been following for years, genuinely honest creator.",
-        f"Amazing collaboration and clear messaging!"
-    ]
+    if profile and profile.get("bio"):
+        return [profile["bio"]]
+    return []
+
 
 
 # ======== YouTube (via youtube138) ========
