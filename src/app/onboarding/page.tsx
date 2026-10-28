@@ -52,27 +52,7 @@ const CATEGORIES = [
     { id: "local_services", label: "Local Services & Retail", icon: Store, color: "bg-[#A3E635]" },
 ];
 
-const TARGET_AGE_GROUPS = [
-    { id: "13-17", label: "13-17 (Teens)" },
-    { id: "18-24", label: "18-24 (Gen Z)" },
-    { id: "25-34", label: "25-34 (Millennials)" },
-    { id: "35-44", label: "35-44 (Young Adults)" },
-    { id: "45+", label: "45+ (Mature Audience)" },
-];
 
-const CORE_INTERESTS = [
-    "🍔 Foodie / Cafes", "👗 Fashion & Style", "🏋️ Fitness & Gym",
-    "💄 Beauty & Makeup", "💻 Tech & Gadgets", "✈️ Travel & Adventure",
-    "🎮 Gaming & Esports", "🌿 Lifestyle & Vlogs", "🎵 Music & Nightlife",
-    "🎬 Movies & OTT", "💰 Finance & Crypto", "🐾 Pets & Animals"
-];
-
-const DELIVERABLES_LIST = [
-    { id: "reels", label: "Instagram Reels / Shorts", icon: Video, desc: "High organic reach & virality" },
-    { id: "stories", label: "24h Story Mentions & Links", icon: Instagram, desc: "Direct traffic & link clicks" },
-    { id: "visit", label: "Footfall / Store Visit & Experience", icon: Store, desc: "Drive real in-person customers" },
-    { id: "review", label: "Dedicated Long-form Review", icon: Youtube, desc: "Detailed product demonstration" },
-];
 
 export default function OnboardingPage() {
     const router = useRouter();
@@ -96,11 +76,11 @@ export default function OnboardingPage() {
     const [brandCategory, setBrandCategory] = useState("cafe_restaurant");
     const [brandArea, setBrandArea] = useState("");
     const [brandCity, setBrandCity] = useState("Navi Mumbai");
-    const [targetAge, setTargetAge] = useState<string[]>(["18-24", "25-34"]);
-    const [targetInterests, setTargetInterests] = useState<string[]>(["🍔 Foodie / Cafes", "🌿 Lifestyle & Vlogs"]);
-    const [collabType, setCollabType] = useState<"barter" | "paid" | "both">("both");
-    const [deliverables, setDeliverables] = useState<string[]>(["reels", "visit"]);
-    const [budgetRange, setBudgetRange] = useState("₹10,000 - ₹50,000");
+    const targetAge = ["18-24", "25-34"];
+    const targetInterests = ["🍔 Foodie / Cafes", "🌿 Lifestyle & Vlogs"];
+    const collabType: "barter" | "paid" | "both" = "both";
+    const deliverables = ["reels", "visit"];
+    const budgetRange = "₹10,000 - ₹50,000";
 
     // ================= Influencer State =================
     const [creatorHandle, setCreatorHandle] = useState("");
@@ -145,16 +125,7 @@ export default function OnboardingPage() {
         checkAuth();
     }, []);
 
-    // Toggle multi-select items
-    const toggleArrayItem = (item: string, current: string[], setter: (v: string[]) => void) => {
-        if (current.includes(item)) {
-            if (current.length > 1) {
-                setter(current.filter((i) => i !== item));
-            }
-        } else {
-            setter([...current, item]);
-        }
-    };
+
 
     // Auto connect with Vouch AI
     const handleConnectVouchAi = async () => {
@@ -404,7 +375,7 @@ export default function OnboardingPage() {
     };
 
     // Total steps calculation
-    const totalSteps = 4;
+    const totalSteps = accountType === "brand" ? 2 : 4;
     const progressPercent = step === 0 ? 10 : Math.min(100, Math.round((step / totalSteps) * 100));
 
     return (
@@ -499,7 +470,7 @@ export default function OnboardingPage() {
                                     </div>
 
                                     <div className="pt-6 mt-6 border-t-2 border-[var(--color-neo-black)]/10 flex items-center justify-between font-bold text-sm text-[var(--color-neo-black)]">
-                                        <span>4 quick questions</span>
+                                        <span>2 quick questions</span>
                                         <div className="w-8 h-8 rounded-full bg-[var(--color-neo-black)] text-[var(--color-neo-white)] flex items-center justify-center group-hover:translate-x-1 transition-transform">
                                             <ArrowRight size={16} />
                                         </div>
@@ -559,7 +530,7 @@ export default function OnboardingPage() {
                         >
                             <div className="space-y-2">
                                 <span className="text-xs font-black uppercase tracking-wider text-[var(--color-neo-pink)]">
-                                    Question 1 of 4
+                                    Question 1 of 2
                                 </span>
                                 <h2 className="text-2xl md:text-3xl font-black uppercase text-[var(--color-neo-black)]">
                                     What is your business name and category?
@@ -652,7 +623,7 @@ export default function OnboardingPage() {
                         >
                             <div className="space-y-2">
                                 <span className="text-xs font-black uppercase tracking-wider text-[var(--color-neo-pink)]">
-                                    Question 2 of 4
+                                    Question 2 of 2
                                 </span>
                                 <h2 className="text-2xl md:text-3xl font-black uppercase text-[var(--color-neo-black)]">
                                     Where is your business located?
@@ -713,244 +684,18 @@ export default function OnboardingPage() {
                                 </button>
                                 <button
                                     type="button"
+                                    disabled={isSubmitting}
                                     onClick={() => {
                                         if (!brandArea.trim() || !brandCity.trim()) {
                                             alert("Please enter your area and city!");
                                             return;
                                         }
-                                        setStep(3);
+                                        handleFinishOnboarding();
                                     }}
-                                    className="neo-btn px-6 py-3 rounded-xl text-sm bg-[var(--color-neo-yellow)] text-[var(--color-neo-black)] flex items-center gap-2"
-                                >
-                                    Continue <ArrowRight size={16} />
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Brand Question 3: Ideal Customer (Target Audience) */}
-                    {accountType === "brand" && step === 3 && !isCalibrating && (
-                        <motion.div
-                            key="brand-step-3"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="neo-card p-6 md:p-10 rounded-3xl bg-[var(--color-neo-white)] space-y-6"
-                        >
-                            <div className="space-y-2">
-                                <span className="text-xs font-black uppercase tracking-wider text-[var(--color-neo-pink)]">
-                                    Question 3 of 4
-                                </span>
-                                <h2 className="text-2xl md:text-3xl font-black uppercase text-[var(--color-neo-black)]">
-                                    Who is your ideal customer?
-                                </h2>
-                                <p className="text-sm text-[var(--color-neo-black)]/70">
-                                    Select the target age group and core lifestyle interests of the audience you want to reach.
-                                </p>
-                            </div>
-
-                            <div className="space-y-5 pt-2">
-                                <div>
-                                    <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
-                                        Target Age Groups (Select all that apply)
-                                    </label>
-                                    <div className="flex flex-wrap gap-2.5">
-                                        {TARGET_AGE_GROUPS.map((age) => {
-                                            const active = targetAge.includes(age.id);
-                                            return (
-                                                <button
-                                                    key={age.id}
-                                                    type="button"
-                                                    onClick={() => toggleArrayItem(age.id, targetAge, setTargetAge)}
-                                                    className={`px-4 py-2.5 rounded-xl neo-border text-xs font-bold transition-all flex items-center gap-2 ${
-                                                        active
-                                                            ? "bg-[var(--color-neo-pink)] text-white neo-shadow-sm scale-[1.02]"
-                                                            : "bg-white text-[var(--color-neo-black)] hover:bg-neutral-50"
-                                                    }`}
-                                                >
-                                                    {active && <Check size={14} />}
-                                                    {age.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
-                                        Core Interests / Genres (Select 2 or more)
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {CORE_INTERESTS.map((interest) => {
-                                            const active = targetInterests.includes(interest);
-                                            return (
-                                                <button
-                                                    key={interest}
-                                                    type="button"
-                                                    onClick={() => toggleArrayItem(interest, targetInterests, setTargetInterests)}
-                                                    className={`px-3.5 py-2 rounded-xl neo-border text-xs font-bold transition-all ${
-                                                        active
-                                                            ? "bg-[var(--color-neo-blue)] text-[var(--color-neo-black)] neo-shadow-sm scale-[1.02]"
-                                                            : "bg-white text-[var(--color-neo-black)]/80 hover:bg-neutral-50"
-                                                    }`}
-                                                >
-                                                    {interest}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="pt-6 border-t-2 border-[var(--color-neo-black)]/10 flex items-center justify-between">
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(2)}
-                                    className="neo-btn px-4 py-2.5 rounded-xl text-xs bg-white text-[var(--color-neo-black)] flex items-center gap-2"
-                                >
-                                    <ArrowLeft size={16} /> Back
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(4)}
-                                    className="neo-btn px-6 py-3 rounded-xl text-sm bg-[var(--color-neo-yellow)] text-[var(--color-neo-black)] flex items-center gap-2"
-                                >
-                                    Continue <ArrowRight size={16} />
-                                </button>
-                            </div>
-                        </motion.div>
-                    )}
-
-                    {/* Brand Question 4: Collaboration Type, Deliverables & Budget */}
-                    {accountType === "brand" && step === 4 && !isCalibrating && (
-                        <motion.div
-                            key="brand-step-4"
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            className="neo-card p-6 md:p-10 rounded-3xl bg-[var(--color-neo-white)] space-y-6"
-                        >
-                            <div className="space-y-2">
-                                <span className="text-xs font-black uppercase tracking-wider text-[var(--color-neo-pink)]">
-                                    Question 4 of 4
-                                </span>
-                                <h2 className="text-2xl md:text-3xl font-black uppercase text-[var(--color-neo-black)]">
-                                    What is your collaboration type & budget?
-                                </h2>
-                                <p className="text-sm text-[var(--color-neo-black)]/70">
-                                    Define how you want to work with creators and the type of content deliverables you prefer.
-                                </p>
-                            </div>
-
-                            <div className="space-y-6 pt-2">
-                                {/* Barter vs Paid */}
-                                <div>
-                                    <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
-                                        Collaboration Deal Type
-                                    </label>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {[
-                                            { id: "barter", label: "🎁 Barter Only", desc: "Free meal / product in exchange for content" },
-                                            { id: "paid", label: "💵 Paid Deals", desc: "Fixed sponsorship fee per deliverable" },
-                                            { id: "both", label: "🤝 Both Barter & Paid", desc: "Flexible based on creator size & tier" },
-                                        ].map((t) => (
-                                            <button
-                                                key={t.id}
-                                                type="button"
-                                                onClick={() => setCollabType(t.id as any)}
-                                                className={`p-4 rounded-xl neo-border text-left transition-all ${
-                                                    collabType === t.id
-                                                        ? "bg-[var(--color-neo-green)] neo-shadow-sm scale-[1.02] font-bold"
-                                                        : "bg-white hover:bg-neutral-50 font-semibold"
-                                                }`}
-                                            >
-                                                <div className="text-sm text-[var(--color-neo-black)] font-black">{t.label}</div>
-                                                <div className="text-xs text-[var(--color-neo-black)]/70 mt-1">{t.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Deliverables preference */}
-                                <div>
-                                    <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
-                                        Deliverable Preference (Select all that apply)
-                                    </label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        {DELIVERABLES_LIST.map((del) => {
-                                            const active = deliverables.includes(del.id);
-                                            const Icon = del.icon;
-                                            return (
-                                                <button
-                                                    key={del.id}
-                                                    type="button"
-                                                    onClick={() => toggleArrayItem(del.id, deliverables, setDeliverables)}
-                                                    className={`p-3.5 rounded-xl neo-border text-left flex items-start gap-3 transition-all ${
-                                                        active
-                                                            ? "bg-[var(--color-neo-yellow)] neo-shadow-sm scale-[1.01]"
-                                                            : "bg-white hover:bg-neutral-50"
-                                                    }`}
-                                                >
-                                                    <div className={`p-2 rounded-lg neo-border ${active ? "bg-white" : "bg-neutral-100"}`}>
-                                                        <Icon size={16} />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs font-black text-[var(--color-neo-black)]">{del.label}</div>
-                                                        <div className="text-[11px] text-[var(--color-neo-black)]/70 mt-0.5">{del.desc}</div>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                {/* Monthly Budget Range */}
-                                <div>
-                                    <label className="text-xs font-black uppercase text-[var(--color-neo-black)]/60 mb-2 block">
-                                        Estimated Monthly Campaign Budget
-                                    </label>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-                                        {[
-                                            "Barter Only (₹0)",
-                                            "₹5k - ₹20k",
-                                            "₹20k - ₹50k",
-                                            "₹50k - ₹2L+",
-                                        ].map((b) => (
-                                            <button
-                                                key={b}
-                                                type="button"
-                                                onClick={() => setBudgetRange(b)}
-                                                className={`p-3 rounded-xl neo-border text-center text-xs font-bold transition-all ${
-                                                    budgetRange === b
-                                                        ? "bg-[var(--color-neo-purple)] text-white neo-shadow-sm scale-[1.02]"
-                                                        : "bg-white text-[var(--color-neo-black)] hover:bg-neutral-50"
-                                                }`}
-                                            >
-                                                {b}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="pt-6 border-t-2 border-[var(--color-neo-black)]/10 flex items-center justify-between">
-                                <button
-                                    type="button"
-                                    onClick={() => setStep(3)}
-                                    className="neo-btn px-4 py-2.5 rounded-xl text-xs bg-white text-[var(--color-neo-black)] flex items-center gap-2"
-                                >
-                                    <ArrowLeft size={16} /> Back
-                                </button>
-                                <button
-                                    type="button"
-                                    disabled={isSubmitting}
-                                    onClick={handleFinishOnboarding}
                                     className="neo-btn px-8 py-3.5 rounded-xl text-sm bg-[var(--color-neo-pink)] text-white flex items-center gap-2 neo-shadow"
                                 >
                                     <Sparkles size={18} />
-                                    Launch Match Engine <ArrowRight size={16} />
+                                    {isSubmitting ? "Calibrating..." : "Launch Match Engine"} <ArrowRight size={16} />
                                 </button>
                             </div>
                         </motion.div>
