@@ -99,6 +99,10 @@ async def fetch_instagram_profile(handle: str) -> dict:
             try:
                 if method == "GET":
                     resp = await client.get(url, params=payload, headers=rapid_headers)
+                elif url.endswith(".php"):
+                    # PHP endpoints on RapidAPI require form-data, not application/json
+                    php_headers = {k: v for k, v in rapid_headers.items() if k.lower() != "content-type"}
+                    resp = await client.post(url, data=payload, headers=php_headers)
                 else:
                     resp = await client.post(url, json=payload, headers=rapid_headers)
                 
